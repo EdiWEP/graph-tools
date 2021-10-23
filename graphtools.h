@@ -1,12 +1,13 @@
 #include<iostream>
 #include<fstream>
 #include<vector>
+#include<queue>
 
 using namespace std;
 
 
 class Node {
-
+                        // Currently has no practical use, this class is here for future versions of this program
     private:
 
         int value;
@@ -57,11 +58,13 @@ class Graph {
         vector < vector < int > > adjancencyList;
 
         void DFS(vector<int>& visitedNodes, int marker = 1, int nodeIndex = 0);
-        void BFS();
+        void BFS(vector<int>& visitedNodes, vector<int>& distances, int startIndex = 0);
 
     public:
 
         int NumberOfComponents();
+        vector<int> UnweightedDistances(int startIndex = 0);
+
         void BuildFromAdjacencyList(istream& inputStream);
 
 
@@ -120,25 +123,38 @@ class Graph {
         }
 
 #pragma endregion
+
 };
 
-void Graph::BuildFromAdjacencyList(istream& inputStream) {           // Sets edges between nodes by reading adjancency list pairs from inputStream
+void Graph::BFS(vector<int>& visitedNodes, vector<int>& distances, int startIndex /*= 0*/) {
+                                                                        // Breadth-first search that sets visited nodes and distance to each node from node with index startIndex
+    queue<int> nodeQueue;
 
-    int node1, node2;
+    nodeQueue.push(startIndex);
+    distances[startIndex] = 0;
 
-    for(int i = 0; i < numberOfEdges; ++i) {
+    while(!nodeQueue.empty()) {
 
-        inputStream >> node1 >> node2;
-        
-        adjancencyList[node1].push_back(node2);
-        adjancencyList[node2].push_back(node1);
-        
+        int topNode = nodeQueue.front();
+
+        visitedNodes[topNode] = 1;
+
+        for(int neighbor : adjancencyList[topNode]) {
+            if(!visitedNodes[neighbor]) {
+                
+                nodeQueue.push(neighbor);
+                distances[neighbor] = 1 + distances[topNode];
+                visitedNodes[neighbor] = 1;
+            }
+        }
+
+        nodeQueue.pop();
     }
-    
+
 }
 
 void Graph::DFS(vector<int>& visitedNodes, int marker /*= 1*/, int nodeIndex /*= 0*/) {
-
+                                                                                        // Recursive depth-first search, sets visited positions in visitedNodes with marker for counting components
     visitedNodes[nodeIndex] = marker;
 
     for(int neighborIndex : adjancencyList[nodeIndex]) {
@@ -150,8 +166,25 @@ void Graph::DFS(vector<int>& visitedNodes, int marker /*= 1*/, int nodeIndex /*=
 
 }
 
-int Graph::NumberOfComponents() {
+vector<int> Graph::UnweightedDistances(int startIndex /*= 0*/) {
+                                                                        // Wrapper Method for calculating unweighted distances to each node form startIndex through BFS
+                                                                        // Saves distances in distances parameter(distances vector should be empty when calling this method)
+    
+    vector<int> visited;
+    vector<int> distances;
 
+    for(int i = 0; i < numberOfNodes; ++i) {
+        visited.push_back(0);
+        distances.push_back(-1);                // -1 means there is no path to a certain node
+    }
+
+    BFS(visited, distances, startIndex);
+
+    return distances;
+}
+
+int Graph::NumberOfComponents() {
+                                        // Computes number of components in graph.
     int numberOfComponents = 0;
 
     vector<int> visited;
@@ -170,3 +203,20 @@ int Graph::NumberOfComponents() {
     return numberOfComponents;
 }
 
+void Graph::BuildFromAdjacencyList(istream& inputStream) {           // Sets edges between nodes by reading adjancency list pairs from inputStream
+
+    int node1, node2;
+
+    for(int i = 0; i < numberOfEdges; ++i) {
+
+        inputStream >> node1 >> node2;
+        
+        adjancencyList[node1].push_back(node2);
+
+        if(!directed) {
+
+            adjancencyList[node2].push_back(node1);
+        }
+    }
+    
+}

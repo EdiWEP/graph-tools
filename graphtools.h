@@ -1,4 +1,3 @@
-#pragma once
 #include<iostream>
 #include<fstream>
 #include<vector>
@@ -58,18 +57,22 @@ class Graph {
         int numberOfEdges;
 
         vector < Node > nodes;
-        vector < vector < int > > adjancencyList;
+        vector < vector < int > > adjacencyList;
 
         void DFS(vector<int>& visitedNodes, int marker = 1, int nodeIndex = 0);
         void BFS(vector<int>& visitedNodes, vector<int>& distances, int startIndex = 0);
         void TarjanDFS(int currentNode, vector<vector<int>>& ssc, vector<int>& order, vector<int>& lowest, stack<int>& nodeStack, vector<bool>& onStack, int& counter);
+        void BiconnectedDFS(int currentNode, int parent, int currentDepth, vector< vector <int>>& bcc, vector<int>& depth, vector<int>& lowest, stack<int>& nodeStack, vector<bool>& visited);
+        void CriticalEdgesDFS(int currentnode, int parent, vector < pair <int, int>>& cc, vector<int>& depth, vector<int>& lowest, int& counter);
+
 
     public:
 
         int NumberOfComponents();
         vector<int> UnweightedDistances(int startIndex = 0);
         vector<vector <int>> StronglyConnectedComponents();
-
+        vector<vector <int>> BiconnectedComponents();
+        vector<pair <int, int>> CriticalConnections();
 
         void BuildFromAdjacencyList(istream& inputStream);
 
@@ -95,7 +98,7 @@ class Graph {
 
             for(int i = 0; i < numberOfNodes; ++i) {
                 vector<int> tempVector;
-                adjancencyList.push_back(tempVector);
+                adjacencyList.push_back(tempVector);
             }
         }
 
@@ -145,7 +148,7 @@ void Graph::BFS(vector<int>& visitedNodes, vector<int>& distances, int startInde
 
         visitedNodes[topNode] = 1;
 
-        for(int neighbor : adjancencyList[topNode]) {
+        for(int neighbor : adjacencyList[topNode]) {
             if(!visitedNodes[neighbor]) {
                 
                 nodeQueue.push(neighbor);
@@ -163,7 +166,7 @@ void Graph::DFS(vector<int>& visitedNodes, int marker /*= 1*/, int nodeIndex /*=
                                                                                         // Recursive depth-first search, sets visited positions in visitedNodes with marker for counting components
     visitedNodes[nodeIndex] = marker;
 
-    for(int neighborIndex : adjancencyList[nodeIndex]) {
+    for(int neighborIndex : adjacencyList[nodeIndex]) {
 
         if(!visitedNodes[neighborIndex]) {
             DFS(visitedNodes, marker, neighborIndex);
@@ -183,7 +186,7 @@ void Graph::TarjanDFS(int currentNode, vector<vector<int>>& ssc, vector<int>& or
     onStack[currentNode] = true;
 
 
-    for(int neighbor: adjancencyList[currentNode]) {
+    for(int neighbor: adjacencyList[currentNode]) {
 
         if(order[neighbor] < 0) {           // If node hasn't been visited yet
 
@@ -219,6 +222,101 @@ void Graph::TarjanDFS(int currentNode, vector<vector<int>>& ssc, vector<int>& or
         ssc.push_back(currentSsc);
     }
 }
+
+void Graph::CriticalEdgesDFS(int currentNode, int parent, vector < pair <int, int>>& cc, vector<int>& order, vector<int>& lowest, int& counter) {
+
+    order[currentNode] = counter;
+    lowest[currentNode] = counter;
+
+    ++counter;
+
+    for(int child : adjacencyList[currentNode]) {
+
+        if(order[child] < 0) {
+
+            CriticalEdgesDFS(child, currentNode, cc, order, lowest, counter);
+
+            lowest[currentNode] = min(lowest[currentNode], lowest[child]);      // Update lowest after subtree is finished
+
+            if (lowest[child] > order[currentNode]) {
+                                                            // We can't reach the current node through any path that doesn't include the current edge
+                                                            // So current edge is critical
+                pair <int, int> edge;
+                edge.first = currentNode; edge.second = child;
+
+                cc.push_back(edge);            
+            }
+        }
+        else if (child != parent) {
+
+            lowest[currentNode] = min(lowest[currentNode], order[child]);
+        }
+    }
+}
+
+void Graph::BiconnectedDFS(int currentNode, int parent, int currentDepth, vector< vector <int>>& bcc, vector<int>& depth, vector<int>& lowest, stack<int>& nodeStack, vector<bool>& visited) {
+
+    depth[currentNode] =  currentDepth;
+    lowest[currentNode] = currentDepth;
+    visited[currentNode] = true;
+    nodeStack.push(currentNode);
+
+    for(int child: adjacencyList[currentNode]) {
+
+        if (child != parent) {          // Check is required to prevent loops
+                                    
+            if(visited[child]) {                    
+
+                lowest[currentNode] = min(lowest[currentNode], depth[child]);               // Back-edge is found
+            }
+
+            else {
+
+                BiconnectedDFS(child, currentNode, currentDepth +1, bcc, depth, lowest, nodeStack, visited);
+
+                lowest[currentNode] = min(lowest[currentNode], lowest[child]);              // Update with lowest depth descendants can reach
+
+                if(depth[currentNode] <= lowest[child]) {                                    // If true, then child can't reach above current depth, so current node separates two BCCs
+
+                    
+                    vector < int > currentBcc;
+                    currentBcc.push_back(currentNode);                  // Current node is part of both BCCs that it separates
+
+                    int stackTop;
+
+                    do {
+
+                        stackTop = nodeStack.top();
+                        nodeStack.pop();
+                        currentBcc.push_back(stackTop);
+                    } while ( stackTop != child );
+
+                    bcc.push_back(currentBcc);
+                }
+            }
+        }
+    }
+}
+
+vector<pair <int,int> > Graph::CriticalConnections() {
+                                                         // Tested on leetcode(Critical Connections problem)  
+    vector<pair <int, int> > cc;                         // The list of critical edges
+
+    vector<int> order;                  // Node X is the order[x]-th node to be found during DFS
+    vector<int> lowest;                 // lowest[X] is the minimum order[Y], where node Y is connected to node X
+     
+    int counter = 0;
+
+    for(int i = 0; i < numberOfNodes; ++i) {
+
+        order.push_back(-1);            // -1 order means node hasn't been visited yet
+        lowest.push_back(-1);
+    }
+
+    CriticalEdgesDFS(0, -1, cc, order, lowest, counter);  // Root node has no parent
+
+    return cc;
+} 
 
 vector<int> Graph::UnweightedDistances(int startIndex /*= 0*/) {
                                                                         // Wrapper Method for calculating unweighted distances to each node form startIndex through BFS
@@ -256,6 +354,28 @@ int Graph::NumberOfComponents() {
     }
 
     return numberOfComponents;
+}
+
+vector< vector <int> > Graph::BiconnectedComponents() {
+                                                                    // Returns the list of biconnected components in graph
+
+    vector< vector<int> > bcc;      // The list of BCCs to be returned
+
+    stack<int> nodeStack;           // The stack of visited nodes
+    
+    vector<int> depth;              // Holds the depth of each node in the DFS tree
+    vector<int> lowest;             // Holds the lowest depth a node can reach through its descendants
+    vector<bool> visited;           // For marking visited nodes
+
+    for(int i = 0; i < numberOfNodes; ++i) {
+        depth.push_back(-1);        // Initialization
+        lowest.push_back(-1);   
+        visited.push_back(false);
+    }
+
+    BiconnectedDFS(0, -1, 0, bcc, depth, lowest, nodeStack, visited);       // Root node (0) has no parent
+
+    return bcc;
 }
 
 vector< vector <int> > Graph::StronglyConnectedComponents() {
@@ -296,11 +416,11 @@ void Graph::BuildFromAdjacencyList(istream& inputStream) {           // Sets edg
 
         inputStream >> node1 >> node2;
         
-        adjancencyList[node1].push_back(node2);
+        adjacencyList[node1].push_back(node2);
 
         if(!directed) {
 
-            adjancencyList[node2].push_back(node1);
+            adjacencyList[node2].push_back(node1);
         }
     }
     

@@ -64,7 +64,7 @@ class Graph {
         void TarjanDFS(int currentNode, vector<vector<int>>& ssc, vector<int>& order, vector<int>& lowest, stack<int>& nodeStack, vector<bool>& onStack, int& counter);
         void BiconnectedDFS(int currentNode, int parent, int currentDepth, vector< vector <int>>& bcc, vector<int>& depth, vector<int>& lowest, stack<int>& nodeStack, vector<bool>& visited);
         void CriticalEdgesDFS(int currentnode, int parent, vector < pair <int, int>>& cc, vector<int>& depth, vector<int>& lowest, int& counter);
-
+        
 
     public:
 
@@ -73,6 +73,8 @@ class Graph {
         vector<vector <int>> StronglyConnectedComponents();
         vector<vector <int>> BiconnectedComponents();
         vector<pair <int, int>> CriticalConnections();
+        
+        static bool CheckHavelHakimi(vector<int>& degrees);
 
         void BuildFromAdjacencyList(istream& inputStream);
 
@@ -247,7 +249,7 @@ void Graph::CriticalEdgesDFS(int currentNode, int parent, vector < pair <int, in
                 cc.push_back(edge);            
             }
         }
-        else if (child != parent) {
+        else if (child != parent) {                         // Found visited node, so a back-edge
 
             lowest[currentNode] = min(lowest[currentNode], order[child]);
         }
@@ -296,6 +298,54 @@ void Graph::BiconnectedDFS(int currentNode, int parent, int currentDepth, vector
             }
         }
     }
+}
+
+bool Graph::CheckHavelHakimi(vector<int>& degrees) {
+                                                                            // Receives a list of node degrees and returns true if a corelated graph can exist through the Havel-Hakimi algorithm
+    int numberOfNodes = degrees.size();
+
+    int sum = 0; 
+
+    for(int degree : degrees) {
+
+        sum += degree;
+
+        if (degree >= numberOfNodes) {
+                                    // If degree is > n-1 then there are not enough nodes, therefore a graph doesn't exist
+            return false; 
+        }
+    }
+
+    if(sum % 2) {
+                            // If sum of degrees is odd then a graph doesn't exist
+        return false; 
+    }
+
+    sort(degrees.begin(), degrees.end());           // Sort vector of degrees, then iterate through it in descending order
+
+    --numberOfNodes; 
+
+    while(sum > 0) {
+
+        int currentNode = degrees[numberOfNodes];
+
+        for(int i = numberOfNodes; i > numberOfNodes - currentNode - 1; --i ) {
+            
+            --degrees[i];                       // Decrement the previous max(degrees) values
+            if(degrees[i] < 0) {
+                                               // If any number in the vector falls below 0, then a graph doesn't exist
+                return false;
+            }
+        }
+
+        --numberOfNodes;        // "Eliminating" the node we resolved the degrees of
+        sum -= 2*currentNode;
+       
+        degrees.pop_back();
+        sort(degrees.begin(), degrees.end());   // Bubble sort might be faster here
+    }
+    
+    return true;            // If this point is reached then the vector is now [0, 0, .. 0] and a graph exists for the given set of degrees          
 }
 
 vector<pair <int,int> > Graph::CriticalConnections() {
@@ -425,3 +475,4 @@ void Graph::BuildFromAdjacencyList(istream& inputStream) {           // Sets edg
     }
     
 }
+

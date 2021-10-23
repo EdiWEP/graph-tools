@@ -1,7 +1,10 @@
+#pragma once
 #include<iostream>
 #include<fstream>
 #include<vector>
 #include<queue>
+#include<stack>
+#include<algorithm>
 
 using namespace std;
 
@@ -59,11 +62,14 @@ class Graph {
 
         void DFS(vector<int>& visitedNodes, int marker = 1, int nodeIndex = 0);
         void BFS(vector<int>& visitedNodes, vector<int>& distances, int startIndex = 0);
+        void TarjanDFS(int currentNode, vector<vector<int>>& ssc, vector<int>& order, vector<int>& lowest, stack<int>& nodeStack, vector<bool>& onStack, int& counter);
 
     public:
 
         int NumberOfComponents();
         vector<int> UnweightedDistances(int startIndex = 0);
+        vector<vector <int>> StronglyConnectedComponents();
+
 
         void BuildFromAdjacencyList(istream& inputStream);
 
@@ -128,10 +134,10 @@ class Graph {
 
 void Graph::BFS(vector<int>& visitedNodes, vector<int>& distances, int startIndex /*= 0*/) {
                                                                         // Breadth-first search that sets visited nodes and distance to each node from node with index startIndex
-    queue<int> nodeQueue;
+    queue<int> nodeQueue;           // Queue of nodes that haven't had their edges processed yet
 
     nodeQueue.push(startIndex);
-    distances[startIndex] = 0;
+    distances[startIndex] = 0;      // Distance to starting node
 
     while(!nodeQueue.empty()) {
 
@@ -166,6 +172,54 @@ void Graph::DFS(vector<int>& visitedNodes, int marker /*= 1*/, int nodeIndex /*=
 
 }
 
+void Graph::TarjanDFS(int currentNode, vector<vector<int>>& ssc, vector<int>& order, vector<int>& lowest, stack<int>& nodeStack, vector<bool>& onStack, int& counter) {
+
+    order[currentNode] = counter;
+    lowest[currentNode] = counter;
+
+    ++counter;
+
+    nodeStack.push(currentNode);
+    onStack[currentNode] = true;
+
+
+    for(int neighbor: adjancencyList[currentNode]) {
+
+        if(order[neighbor] < 0) {           // If node hasn't been visited yet
+
+            TarjanDFS(neighbor, ssc, order, lowest, nodeStack, onStack, counter);
+
+            lowest[currentNode] = min(lowest[currentNode], lowest[neighbor]);               // Set the SSC index of each node on the recursion return path
+        }
+        else {
+            if (onStack[neighbor]) {
+                                                                                            // If neighbor isn't on the stack, then neighbor is part of a different, previously discovered SSC
+                lowest[currentNode] = min(lowest[currentNode], order[neighbor]);
+            }
+        }
+    }
+
+    if(lowest[currentNode] == order[currentNode]) {                                         // If lowest[X] = order[X] then X has no back-edge and is the root of its SSC
+                                                                                            // The stack must be popped up to said root, as we have found a complete SSC                                                                                      
+        vector<int> currentSsc;
+
+        int stackTop;
+
+        do {
+
+            stackTop = nodeStack.top();
+            
+            nodeStack.pop();
+            onStack[stackTop] = false;
+
+            currentSsc.push_back(stackTop);
+
+        } while (currentNode != stackTop);
+
+        ssc.push_back(currentSsc);
+    }
+}
+
 vector<int> Graph::UnweightedDistances(int startIndex /*= 0*/) {
                                                                         // Wrapper Method for calculating unweighted distances to each node form startIndex through BFS
                                                                         // Saves distances in distances parameter(distances vector should be empty when calling this method)
@@ -173,6 +227,7 @@ vector<int> Graph::UnweightedDistances(int startIndex /*= 0*/) {
     vector<int> visited;
     vector<int> distances;
 
+    
     for(int i = 0; i < numberOfNodes; ++i) {
         visited.push_back(0);
         distances.push_back(-1);                // -1 means there is no path to a certain node
@@ -184,7 +239,7 @@ vector<int> Graph::UnweightedDistances(int startIndex /*= 0*/) {
 }
 
 int Graph::NumberOfComponents() {
-                                        // Computes number of components in graph.
+                                        // Computes number of components in undirected graph 
     int numberOfComponents = 0;
 
     vector<int> visited;
@@ -201,6 +256,36 @@ int Graph::NumberOfComponents() {
     }
 
     return numberOfComponents;
+}
+
+vector< vector <int> > Graph::StronglyConnectedComponents() {
+                                                                    // Computes the number of strongly connected components in directed graph through Tarjan's algorithm
+    vector< vector <int> > ssc;         // The list of strongly connected components to be returned
+
+    stack<int> nodeStack;               // Stack to be used in tarjan's algorithm
+
+    vector<int> order;                  // Node X is the order[x]-th node to be found during DFS
+    vector<int> lowest;                 // lowest[X] is the minimum order[Y], where node Y is connected to node X
+    vector<bool> onStack;               // onStack[X] is true if node X is currently on the stack 
+    
+    int counter = 0;                    // Counter for the order vector
+
+    for(int i = 0; i < numberOfNodes; ++i) {
+        order.push_back(-1);            // -1 means node hasn't been visited
+        lowest.push_back(-1);           
+        onStack.push_back(false);
+    }
+
+
+    for(int node = 0; node < numberOfNodes; ++node) {
+
+        if (order[node] < 0) {
+
+            TarjanDFS(node, ssc, order, lowest, nodeStack, onStack, counter);
+        }
+    }
+
+    return ssc;
 }
 
 void Graph::BuildFromAdjacencyList(istream& inputStream) {           // Sets edges between nodes by reading adjancency list pairs from inputStream

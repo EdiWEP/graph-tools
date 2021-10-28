@@ -8,44 +8,6 @@
 using namespace std;
 
 
-class Node {
-                        // Currently has no practical use, this class is here for future versions of this program
-    private:
-
-        int value;
-        int index;
-    
-    public:
-
-#pragma region NodeConstructors
-        Node() {
-            value = 0;
-            index = 0;
-        }
-
-        Node(int index, int value = 0) {
-            this->value = value;
-            this->index = index;
-        }
-#pragma endregion
-
-#pragma region NodeGetSet
-        void SetValue(int value) {
-            this->value = value;
-        }
-        void SetIndex(int index) {
-            this->index = index;
-        }
-
-        int GetValue() {
-            return value;
-        }
-        int GetIndex() {
-            return index;
-        }
-#pragma endregion
-
-};
 
 class Graph {
 
@@ -56,15 +18,19 @@ class Graph {
         int numberOfNodes;
         int numberOfEdges;
 
-        vector < Node > nodes;
         vector < vector < int > > adjacencyList;
 
+        void AddNode();
+        void AddEdge(int node1, int node2);
+
+        
         void DFS(vector<int>& visitedNodes, int marker = 1, int nodeIndex = 0);
         void BFS(vector<int>& visitedNodes, vector<int>& distances, int startIndex = 0);
         void TarjanDFS(int currentNode, vector<vector<int>>& ssc, vector<int>& order, vector<int>& lowest, stack<int>& nodeStack, vector<bool>& onStack, int& counter);
         void BiconnectedDFS(int currentNode, int parent, int currentDepth, vector< vector <int>>& bcc, vector<int>& depth, vector<int>& lowest, stack<int>& nodeStack, vector<bool>& visited);
         void CriticalEdgesDFS(int currentnode, int parent, vector < pair <int, int>>& cc, vector<int>& depth, vector<int>& lowest, int& counter);
         void TopologicalDFS(int currentNode, stack<int>& orderStack, vector<bool>& visitedNodes);
+        void TreeBuilderDFS(int currentNode, int treeCurrentNode, Graph& treeGraph, vector<bool>& visitedNodes);
 
     public:
 
@@ -75,6 +41,9 @@ class Graph {
         vector<vector <int>> BiconnectedComponents();
         vector<pair <int, int>> CriticalConnections();
 
+        Graph DFSTree(int startIndex);
+        Graph BFSTree(int startIndex);
+        Graph DFSTrees();
         
         static bool CheckHavelHakimi(vector<int>& degrees);
 
@@ -95,10 +64,6 @@ class Graph {
             this->numberOfNodes = numberOfNodes;
             this->numberOfEdges = numberOfEdges;
             this->directed = directed;
-
-            for(int i = 0; i < numberOfNodes; ++i) {
-                nodes.push_back(Node(0,i));
-            }
 
             for(int i = 0; i < numberOfNodes; ++i) {
                 vector<int> tempVector;
@@ -140,6 +105,42 @@ class Graph {
 };
 
 #pragma region GraphPrivateMethods
+
+void Graph::AddNode() {
+
+    vector<int> tempVector;
+    adjacencyList.push_back(tempVector);
+    
+    ++numberOfNodes;
+}
+
+void Graph::AddEdge(int node1, int node2) {
+
+    adjacencyList[node1].push_back(node2);
+
+    if(!this->directed) {
+
+        adjacencyList[node2].push_back(node1);
+    }
+
+    ++numberOfEdges;
+}
+
+void Graph::TreeBuilderDFS(int currentNode, int treeCurrentNode, Graph& treeGraph, vector<bool>& visitedNodes) {
+
+    visitedNodes[currentNode] = true;
+
+    for(int child: adjacencyList[currentNode]) {
+
+        if(!visitedNodes[child]) {
+
+            treeGraph.AddNode();
+            treeGraph.AddEdge(treeCurrentNode, treeGraph.numberOfNodes-1);
+
+            TreeBuilderDFS(child, treeGraph.numberOfNodes-1, treeGraph, visitedNodes);
+        }
+    }
+}
 
 void Graph::BFS(vector<int>& visitedNodes, vector<int>& distances, int startIndex /*= 0*/) {
                                                                         // Breadth-first search that sets visited nodes and distance to each node from node with index startIndex
@@ -322,6 +323,49 @@ void Graph::TopologicalDFS(int currentNode, stack<int>& orderStack, vector<bool>
 #pragma endregion
 
 #pragma region GraphPublicMethods
+
+Graph Graph::DFSTree(int startIndex) {
+                                            // Returns a graph object of the DFS tree of node with startIndex index
+                                            // Node of index startIndex will be the node of index 0 in the new graph
+    Graph treeGraph(1, 0, directed);        // Initialize empty graph
+    vector<bool> visitedNodes;
+
+    for(int i = 0; i < numberOfNodes; ++i) {
+
+        visitedNodes.push_back(false);
+    }
+
+    TreeBuilderDFS(startIndex, 0, treeGraph, visitedNodes);
+    
+    return treeGraph;
+}
+
+Graph Graph::DFSTrees() {
+                                            // Returns a graph object of the DFS tree of node with startIndex index
+                                            // Node of index startIndex will be the node of index 0 in the new graph
+    Graph treeGraph(0, 0, directed);        // Initialize empty graph
+    vector<bool> visitedNodes;
+
+    for(int i = 0; i < numberOfNodes; ++i) {
+
+        visitedNodes.push_back(false);
+    }
+
+    for(int node = 0; node < numberOfNodes; ++node) {
+        
+        if(!visitedNodes[node]) {
+
+            treeGraph.AddNode();
+            TreeBuilderDFS(node, treeGraph.numberOfNodes-1, treeGraph, visitedNodes);
+        }
+    }
+
+    return treeGraph;
+}
+
+Graph Graph::BFSTree(int startIndex) {
+ return Graph();
+}
 
 vector<int> Graph::TopologicalSort() {
                                             // Returns the list of nodes in topologically sorted order
@@ -519,9 +563,9 @@ void Graph::BuildFromAdjacencyList(istream& inputStream) {           // Sets edg
     for(int i = 0; i < numberOfEdges; ++i) {
 
         inputStream >> node1 >> node2;
-        
+ 
         adjacencyList[node1].push_back(node2);
-
+      
         if(!directed) {
 
             adjacencyList[node2].push_back(node1);

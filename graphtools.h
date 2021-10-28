@@ -64,15 +64,17 @@ class Graph {
         void TarjanDFS(int currentNode, vector<vector<int>>& ssc, vector<int>& order, vector<int>& lowest, stack<int>& nodeStack, vector<bool>& onStack, int& counter);
         void BiconnectedDFS(int currentNode, int parent, int currentDepth, vector< vector <int>>& bcc, vector<int>& depth, vector<int>& lowest, stack<int>& nodeStack, vector<bool>& visited);
         void CriticalEdgesDFS(int currentnode, int parent, vector < pair <int, int>>& cc, vector<int>& depth, vector<int>& lowest, int& counter);
-        
+        void TopologicalDFS(int currentNode, stack<int>& orderStack, vector<bool>& visitedNodes);
 
     public:
 
         int NumberOfComponents();
         vector<int> UnweightedDistances(int startIndex = 0);
+        vector<int> TopologicalSort();
         vector<vector <int>> StronglyConnectedComponents();
         vector<vector <int>> BiconnectedComponents();
         vector<pair <int, int>> CriticalConnections();
+
         
         static bool CheckHavelHakimi(vector<int>& degrees);
 
@@ -136,6 +138,8 @@ class Graph {
 #pragma endregion
 
 };
+
+#pragma region GraphPrivateMethods
 
 void Graph::BFS(vector<int>& visitedNodes, vector<int>& distances, int startIndex /*= 0*/) {
                                                                         // Breadth-first search that sets visited nodes and distance to each node from node with index startIndex
@@ -298,6 +302,56 @@ void Graph::BiconnectedDFS(int currentNode, int parent, int currentDepth, vector
             }
         }
     }
+}
+
+void Graph::TopologicalDFS(int currentNode, stack<int>& orderStack, vector<bool>& visitedNodes) {
+
+    visitedNodes[currentNode] = true;
+
+    for(int node: adjacencyList[currentNode]) {
+
+        if(!visitedNodes[node]) {
+
+            TopologicalDFS(node, orderStack, visitedNodes);
+        }
+    }
+    
+    orderStack.push(currentNode);           // The stack is formed in the return order of the DFS
+}
+
+#pragma endregion
+
+#pragma region GraphPublicMethods
+
+vector<int> Graph::TopologicalSort() {
+                                            // Returns the list of nodes in topologically sorted order
+                                            // Should only be applied on directed graphs
+    vector<int> sortedNodes;
+
+    stack<int> orderStack;                  // By using a stack, the elements in pop order will form the topologically sorted list
+    vector<int> depth;
+    vector<bool> visited;
+
+    for(int i = 0; i < numberOfNodes; ++i) {
+
+        visited.push_back(false);    
+    }
+
+    for(int i = 0; i < numberOfNodes; ++i) {
+
+        if(!visited[i]) { 
+            TopologicalDFS(i, orderStack, visited);
+        }
+    }
+
+    for(int i = 0; i < numberOfNodes; ++i) {
+
+        sortedNodes.push_back(orderStack.top());
+        orderStack.pop();
+    }
+
+    return sortedNodes;
+
 }
 
 bool Graph::CheckHavelHakimi(vector<int>& degrees) {
@@ -476,4 +530,4 @@ void Graph::BuildFromAdjacencyList(istream& inputStream) {           // Sets edg
     
 }
 
-
+#pragma endregion

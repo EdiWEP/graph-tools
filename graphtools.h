@@ -8,7 +8,6 @@
 using namespace std;
 
 
-
 class Graph {
 
     public:
@@ -45,8 +44,13 @@ class Graph {
         void TopologicalDFS(int currentNode, stack<int>& orderStack, vector<bool>& visitedNodes);
         void TreeBuilderDFS(int currentNode, int treeCurrentNode, Graph& treeGraph, vector<bool>& visitedNodes);
 
+        public: static bool CompareEdges(Edge x, Edge y) {
+            return (x.cost < y.cost); 
+        }
+
     public:
 
+        int TotalCost();
         int NumberOfComponents();
         vector<Edge> GetAllEdges();
         vector<int> UnweightedDistances(int startIndex = 0);
@@ -55,6 +59,7 @@ class Graph {
         vector<vector <int>> BiconnectedComponents();
         vector<Edge> CriticalConnections();
 
+        Graph MinimumSpanningTree();
         Graph DFSTree(int startIndex);
         Graph BFSTree(int startIndex);
         Graph DFSTrees();
@@ -515,6 +520,42 @@ vector<Graph::Edge> Graph::GetAllEdges() {
     }
 
     return edges;
+}
+
+Graph Graph::MinimumSpanningTree() {
+                                                // Returns a graph that is a minimum spanning tree of this graph, using Kruskal's algorithm and disjoint sets
+
+    Graph treeGraph(numberOfNodes, 0, directed, weighted);  // Initialize graph to be returned
+                                                            // Has 0 edges currently because numberOfEdges will be incremented by AddEdge()
+    vector<Edge> sortedEdges = GetAllEdges();
+    sort(sortedEdges.begin(), sortedEdges.end(), CompareEdges);
+
+    DisjointSets sets(numberOfNodes);           // Used for keeping track of the new trees components
+
+    for(int i = 0; i < numberOfEdges; ++i) {
+
+        if( sets.Root(sortedEdges[i].source) != sets.Root(sortedEdges[i].destination) )  {       // Check if nodes are in separate components
+
+            sets.Union(sortedEdges[i].source, sortedEdges[i].destination);
+            treeGraph.AddEdge(sortedEdges[i]);
+        }
+    }
+
+    return treeGraph;
+}
+
+int Graph::TotalCost() {
+                            // Returns the summed cost of all edges in graph
+    int totalCost = 0;
+
+    vector<Edge> edges = GetAllEdges();
+
+    for(auto edge : edges) {
+        
+        totalCost += edge.cost;
+    }
+
+    return totalCost;
 }
 
 Graph Graph::DFSTree(int startIndex) {

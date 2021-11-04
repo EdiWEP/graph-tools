@@ -46,7 +46,7 @@ class Graph {
     public:
 
         int NumberOfComponents();
-        vector<Edge> ListOfEdges();
+        vector<Edge> GetAllEdges();
         vector<int> UnweightedDistances(int startIndex = 0);
         vector<int> TopologicalSort();
         vector<vector <int>> StronglyConnectedComponents();
@@ -431,6 +431,40 @@ void Graph::TopologicalDFS(int currentNode, stack<int>& orderStack, vector<bool>
 #pragma endregion
 
 #pragma region GraphPublicMethods
+
+vector<Graph::Edge> Graph::GetAllEdges() {
+
+    vector<Edge> edges;
+
+    if (directed) {
+        for(int node = 0; node < numberOfNodes; ++node) {
+            for(auto edge : adjacencyList[node]) {
+                edges.push_back(edge);            
+            }
+        }
+    }
+    else {
+    
+        vector<bool> visited;                   // Used for not returning duplicate edges in undirected graphs
+
+        for(int i = 0; i < numberOfNodes; ++i) {
+            visited.push_back(false);
+        }
+
+        for(int node = 0; node < numberOfNodes; ++node) {
+            for(auto edge : adjacencyList[node]) {
+                if (!visited[edge.destination]) {
+                    edges.push_back(edge);
+                }
+            }
+        
+        visited[node] = true;
+
+        }
+    }
+
+    return edges;
+}
 
 Graph Graph::DFSTree(int startIndex) {
                                             // Returns a graph object of the DFS tree of node with startIndex index

@@ -8,20 +8,27 @@
 using namespace std;
 
 
+
 class Graph {
+
+    public:
+    
+    struct Edge {                                       // Auxiliary struct for holding edge information
+        int source; int destination; int cost;          // Source is the source node,
+                                                        // Destinaiton is the node the edge points towards, cost is the edge's cost
+        operator int() { return cost; } 
+        Edge(int source, int dest, int cost = 0): source(source), destination(dest), cost(cost){}
+
+        Edge flip() {return Edge(destination, source, cost);}   // Returns edge with source and destination swapped
+    };
 
     private:
 
         bool directed;
+        bool weighted;
 
         int numberOfNodes;
         int numberOfEdges;
-
-        struct Edge {                                       // Auxiliary struct for holding edge information
-            int node; int cost = 0;                         // Node is the node the edge points towards, cost is the edge's cost
-            operator int() { return node; } 
-            Edge(int n, int c = 0):node(n), cost(c){}
-        };
 
         vector < int > values;                              // The value of each node 
         vector < vector < Edge > > adjacencyList;           // adjacencyList[X] holds the information of each edge that X has
@@ -32,18 +39,19 @@ class Graph {
         void DFS(vector<int>& visitedNodes, int marker = 1, int nodeIndex = 0);
         void StronglyConnectedDFS(int currentNode, vector<vector<int>>& scc, vector<int>& order, vector<int>& lowest, stack<int>& nodeStack, vector<bool>& onStack, int& counter);
         void BiconnectedDFS(int currentNode, int parent, int currentDepth, vector< vector <int>>& bcc, vector<int>& depth, vector<int>& lowest, stack<int>& nodeStack, vector<bool>& visited);
-        void CriticalEdgesDFS(int currentnode, int parent, vector < pair <int, int>>& cc, vector<int>& depth, vector<int>& lowest, int& counter);
+        void CriticalEdgesDFS(int currentNode, int parent, vector <Edge>& cc, vector<int>& depth, vector<int>& lowest, int& counter);
         void TopologicalDFS(int currentNode, stack<int>& orderStack, vector<bool>& visitedNodes);
         void TreeBuilderDFS(int currentNode, int treeCurrentNode, Graph& treeGraph, vector<bool>& visitedNodes);
 
     public:
 
         int NumberOfComponents();
+        vector<Edge> ListOfEdges();
         vector<int> UnweightedDistances(int startIndex = 0);
         vector<int> TopologicalSort();
         vector<vector <int>> StronglyConnectedComponents();
         vector<vector <int>> BiconnectedComponents();
-        vector<pair <int, int>> CriticalConnections();
+        vector<Edge> CriticalConnections();
 
         Graph DFSTree(int startIndex);
         Graph BFSTree(int startIndex);
@@ -51,16 +59,30 @@ class Graph {
         
         static bool CheckHavelHakimi(vector<int>& degrees);
 
-        void BuildFromAdjacencyList(istream& inputStream, bool weighted = false);
+        void BuildFromAdjacencyList(istream& inputStream);
         void BuildFromAdjacencyMatrix(istream& inputStream);
 
-        void AddEdge(int node1, int node2) {
+        void AddEdge(int source, int dest, int cost = 0) {
 
-            adjacencyList[node1].push_back(node2);
+            Edge newEdge(source, dest, cost);
+
+            adjacencyList[source].push_back(newEdge);
 
             if(!this->directed) {
 
-                adjacencyList[node2].push_back(node1);
+                adjacencyList[dest].push_back(newEdge.flip());
+            }
+
+            ++numberOfEdges;
+        }
+
+        void AddEdge(Edge newEdge) {
+
+            adjacencyList[newEdge.source].push_back(newEdge);
+
+            if(!this->directed) {
+
+                adjacencyList[newEdge.destination].push_back(newEdge.flip());
             }
 
             ++numberOfEdges;
@@ -81,17 +103,19 @@ class Graph {
 
 #pragma region GraphConstructors
 
-        Graph(bool directed = false) {
+        Graph(bool directed = false, bool weighted = false) {
 
             numberOfNodes = 0;
             numberOfEdges = 0;
-            this->directed = directed; 
+            this->directed = directed;
+            this->weighted = weighted; 
         }
 
-        Graph(int numberOfNodes, int numberOfEdges, bool directed = false) {
+        Graph(int numberOfNodes, int numberOfEdges, bool directed = false, bool weighted = false) {
             
             this->numberOfEdges = numberOfEdges;
             this->directed = directed;
+            this->weighted = weighted; 
 
             for(int i = 0; i < numberOfNodes; ++i) {
                 
@@ -133,6 +157,14 @@ class Graph {
             return directed;
         }
 
+        void SetWeighted(bool weighted) {
+            this->weighted = weighted;
+        }
+
+        bool IsWeighted() {
+            return weighted;
+        }
+
         void SetNumberOfNodes(int number) {
             numberOfNodes = number;
         }
@@ -170,8 +202,10 @@ void Graph::TreeBuilderBFS(int startIndex, Graph& treeGraph, vector<bool>& visit
 
         visitedNodes[topNode] = true;
 
-        for (int neighbor: adjacencyList[topNode]) {
+        for (auto edge : adjacencyList[topNode]) {
 
+            int neighbor = edge.destination;
+             
             if(!visitedNodes[neighbor]) {
 
                 treeGraph.AddNode();
@@ -192,7 +226,9 @@ void Graph::TreeBuilderDFS(int currentNode, int treeCurrentNode, Graph& treeGrap
                                                                         // DFS that also builds a new graph(the DFS tree)
     visitedNodes[currentNode] = true;
 
-    for(int child: adjacencyList[currentNode]) {
+    for(auto edge : adjacencyList[currentNode]) {
+
+        int child = edge.destination;
 
         if(!visitedNodes[child]) {
 
@@ -217,7 +253,10 @@ void Graph::BFS(vector<int>& visitedNodes, vector<int>& distances, int startInde
 
         visitedNodes[topNode] = 1;
 
-        for(int neighbor : adjacencyList[topNode]) {
+        for(auto edge : adjacencyList[topNode]) {
+
+            int neighbor = edge.destination;
+
             if(!visitedNodes[neighbor]) {
                 
                 nodeQueue.push(neighbor);
@@ -235,10 +274,12 @@ void Graph::DFS(vector<int>& visitedNodes, int marker /*= 1*/, int nodeIndex /*=
                                                                                         // Recursive depth-first search, sets visited positions in visitedNodes with marker for counting components
     visitedNodes[nodeIndex] = marker;
 
-    for(int neighborIndex : adjacencyList[nodeIndex]) {
+    for(auto edge : adjacencyList[nodeIndex]) {
 
-        if(!visitedNodes[neighborIndex]) {
-            DFS(visitedNodes, marker, neighborIndex);
+        int neighbor = edge.destination;
+
+        if(!visitedNodes[neighbor]) {
+            DFS(visitedNodes, marker, neighbor);
         }
     }
 
@@ -255,24 +296,26 @@ void Graph::StronglyConnectedDFS(int currentNode, vector<vector<int>>& scc, vect
     onStack[currentNode] = true;
 
 
-    for(int neighbor: adjacencyList[currentNode]) {
+    for(auto edge : adjacencyList[currentNode]) {
+
+        int neighbor = edge.destination;
 
         if(order[neighbor] < 0) {           // If node hasn't been visited yet
 
             StronglyConnectedDFS(neighbor, scc, order, lowest, nodeStack, onStack, counter);
 
-            lowest[currentNode] = min(lowest[currentNode], lowest[neighbor]);               // Set the SSC index of each node on the recursion return path
+            lowest[currentNode] = min(lowest[currentNode], lowest[neighbor]);               // Set the SCC index of each node on the recursion return path
         }
         else {
             if (onStack[neighbor]) {
-                                                                                            // If neighbor isn't on the stack, then neighbor is part of a different, previously discovered SSC
+                                                                                            // If neighbor isn't on the stack, then neighbor is part of a different, previously discovered SCC
                 lowest[currentNode] = min(lowest[currentNode], order[neighbor]);
             }
         }
     }
 
-    if(lowest[currentNode] == order[currentNode]) {                                         // If lowest[X] = order[X] then X has no back-edge and is the root of its SSC
-                                                                                            // The stack must be popped up to said root, as we have found a complete SSC                                                                                      
+    if(lowest[currentNode] == order[currentNode]) {                                         // If lowest[X] = order[X] then X has no back-edge and is the root of its SCC
+                                                                                            // The stack must be popped up to said root, as we have found a complete SCC                                                                                      
         vector<int> currentScc;
 
         int stackTop;
@@ -292,14 +335,16 @@ void Graph::StronglyConnectedDFS(int currentNode, vector<vector<int>>& scc, vect
     }
 }
 
-void Graph::CriticalEdgesDFS(int currentNode, int parent, vector < pair <int, int>>& cc, vector<int>& order, vector<int>& lowest, int& counter) {
+void Graph::CriticalEdgesDFS(int currentNode, int parent, vector <Edge>& cc, vector<int>& order, vector<int>& lowest, int& counter) {
 
     order[currentNode] = counter;
     lowest[currentNode] = counter;
 
     ++counter;
 
-    for(int child : adjacencyList[currentNode]) {
+    for(auto edge : adjacencyList[currentNode]) {
+
+        int child = edge.destination;
 
         if(order[child] < 0) {
 
@@ -310,14 +355,11 @@ void Graph::CriticalEdgesDFS(int currentNode, int parent, vector < pair <int, in
             if (lowest[child] > order[currentNode]) {
                                                             // We can't reach the current node through any path that doesn't include the current edge
                                                             // So current edge is critical
-                pair <int, int> edge;
-                edge.first = currentNode; edge.second = child;
-
                 cc.push_back(edge);            
             }
         }
-        else if (child != parent) {                         // Found visited node, so a back-edge
-
+        else if (child != parent || directed) {                         // Found visited node, so a back-edge
+                                                            // The if condition is necessary so we don't go back through the edge we just used
             lowest[currentNode] = min(lowest[currentNode], order[child]);
         }
     }
@@ -330,7 +372,9 @@ void Graph::BiconnectedDFS(int currentNode, int parent, int currentDepth, vector
     visited[currentNode] = true;
     nodeStack.push(currentNode);
 
-    for(int child: adjacencyList[currentNode]) {
+    for(auto edge : adjacencyList[currentNode]) {
+
+        int child = edge.destination;
 
         if (child != parent) {          // Check is required to prevent loops
                                     
@@ -371,7 +415,9 @@ void Graph::TopologicalDFS(int currentNode, stack<int>& orderStack, vector<bool>
 
     visitedNodes[currentNode] = true;
 
-    for(int node: adjacencyList[currentNode]) {
+    for(auto edge : adjacencyList[currentNode]) {
+
+        int node = edge.destination;
 
         if(!visitedNodes[node]) {
 
@@ -389,7 +435,7 @@ void Graph::TopologicalDFS(int currentNode, stack<int>& orderStack, vector<bool>
 Graph Graph::DFSTree(int startIndex) {
                                             // Returns a graph object of the DFS tree of node with startIndex index
                                             // Node of index startIndex will be the node of index 0 in the new graph
-    Graph treeGraph(1, 0, directed);        // Initialize empty graph
+    Graph treeGraph(1, 0, directed, weighted);        // Initialize empty graph with one node
     vector<bool> visitedNodes;
 
     for(int i = 0; i < numberOfNodes; ++i) {
@@ -405,7 +451,7 @@ Graph Graph::DFSTree(int startIndex) {
 Graph Graph::DFSTrees() {
                                             // Returns a graph object of the DFS tree of node with startIndex index
                                             // Node of index startIndex will be the node of index 0 in the new graph
-    Graph treeGraph(0, 0, directed);        // Initialize empty graph
+    Graph treeGraph(0, 0, directed, weighted);        // Initialize empty graph
     vector<bool> visitedNodes;
 
     for(int i = 0; i < numberOfNodes; ++i) {
@@ -427,7 +473,7 @@ Graph Graph::DFSTrees() {
 
 Graph Graph::BFSTree(int startIndex) {
 
-    Graph treeGraph(0, 0, directed);
+    Graph treeGraph(0, 0, directed, weighted);
     vector<bool> visitedNodes;
 
     for(int i = 0; i < numberOfNodes; ++i) {
@@ -519,9 +565,9 @@ bool Graph::CheckHavelHakimi(vector<int>& degrees) {
     return true;            // If this point is reached then the vector is now [0, 0, .. 0] and a graph exists for the given set of degrees          
 }
 
-vector<pair <int,int> > Graph::CriticalConnections() {
+vector<Graph::Edge> Graph::CriticalConnections() {
                                                          // Tested on leetcode(Critical Connections problem)  
-    vector<pair <int, int> > cc;                         // The list of critical edges
+    vector<Edge> cc;                    // The list of critical edges
 
     vector<int> order;                  // Node X is the order[x]-th node to be found during DFS
     vector<int> lowest;                 // lowest[X] is the minimum order[Y], where node Y is connected to node X
@@ -630,40 +676,56 @@ vector< vector <int> > Graph::StronglyConnectedComponents() {
 }
 
 void Graph::BuildFromAdjacencyMatrix(istream& inputStream) {        // Sets edges between nodes by reading an adjacency matrix from inputStream
-                                                                    
+                                                                    // Should only be used if numberOfEdges has already been set 
+
     int matrixValue;             // If matrixValue is 0, there is no edge, if matrixValue != 0, then there is an edge of cost matrixValue
 
     for(int i = 0; i < numberOfNodes; ++i) {
-        for (int j = 0; j < numberOfNodes; ++i) {
+        for (int j = 0; j < numberOfNodes; ++j) {
 
             inputStream >> matrixValue;
 
             if(matrixValue) {
+                
+                if(!weighted) {
+                    matrixValue = 0;
+                }
 
-                adjacencyList[i].push_back( (j, matrixValue) );
+                Edge newEdge(i, j, matrixValue);
+
+                adjacencyList[i].push_back( newEdge );
 
                 if(!directed) {    
-                    adjacencyList[j].push_back( (j, matrixValue) );
+                    adjacencyList[j].push_back( newEdge.flip() );
                 }
+               
             }
         } 
     }
 }
 
-void Graph::BuildFromAdjacencyList(istream& inputStream, bool weighted /*= false*/) {           // Sets edges between nodes by reading adjancency list pairs from inputStream
-
-    int node1, node2;
+void Graph::BuildFromAdjacencyList(istream& inputStream) {          // Sets edges between nodes by reading adjancency list pairs from inputStream
+                                                                    // Should only be used if numberOfEdges has already been set 
+                                                                    
+    int node1, node2, cost;
 
     for(int i = 0; i < numberOfEdges; ++i) {
 
         inputStream >> node1 >> node2;
  
-        adjacencyList[node1].push_back(node2);
+        if(weighted) {
+            inputStream >> cost;
+        }
+        else {
+            cost = 0;
+        }
+        
+        Edge newEdge(node1, node2, cost);
+
+        adjacencyList[node1].push_back( newEdge );
       
         if(!directed) {
-            adjacencyList[node2].push_back(node1);
+                adjacencyList[node2].push_back( newEdge.flip() );
         }
     }   
 }
-
-#pragma endregion

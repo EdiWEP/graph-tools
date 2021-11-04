@@ -33,10 +33,11 @@ class Graph {
 
         vector < int > values;                              // The value of each node 
         vector < vector < Edge > > adjacencyList;           // adjacencyList[X] holds the information of each edge that X has
+
         
+        void Dijkstra(vector<bool>& visitedNodes, vector<int>& distances, priority_queue < pair<int, int>, vector< pair<int, int> >, greater< pair <int, int> > >& heap, int startIndex = 0);        
         void BFS(vector<int>& visitedNodes, vector<int>& distances, int startIndex = 0);
         void TreeBuilderBFS(int startIndex, Graph& treeGraph, vector<bool>& visitedNodes);
-
         void DFS(vector<int>& visitedNodes, int marker = 1, int nodeIndex = 0);
         void StronglyConnectedDFS(int currentNode, vector<vector<int>>& scc, vector<int>& order, vector<int>& lowest, stack<int>& nodeStack, vector<bool>& onStack, int& counter);
         void BiconnectedDFS(int currentNode, int parent, int currentDepth, vector< vector <int>>& bcc, vector<int>& depth, vector<int>& lowest, stack<int>& nodeStack, vector<bool>& visited);
@@ -44,7 +45,7 @@ class Graph {
         void TopologicalDFS(int currentNode, stack<int>& orderStack, vector<bool>& visitedNodes);
         void TreeBuilderDFS(int currentNode, int treeCurrentNode, Graph& treeGraph, vector<bool>& visitedNodes);
 
-        public: static bool CompareEdges(Edge x, Edge y) {
+        static bool CompareEdges(Edge x, Edge y) {
             return (x.cost < y.cost); 
         }
 
@@ -54,6 +55,7 @@ class Graph {
         int NumberOfComponents();
         vector<Edge> GetAllEdges();
         vector<int> UnweightedDistances(int startIndex = 0);
+        vector<int> WeightedDistances(int startIndex = 0);
         vector<int> TopologicalSort();
         vector<vector <int>> StronglyConnectedComponents();
         vector<vector <int>> BiconnectedComponents();
@@ -243,6 +245,36 @@ struct Graph::DisjointSets {    // Struct used as helper for creating and manipu
 
 #pragma region GraphPrivateMethods
 
+void Graph::Dijkstra(vector<bool>& visitedNodes, vector<int>& distances, priority_queue < pair<int, int>, vector< pair<int, int> >, greater< pair <int, int> > >& heap, int startIndex /*= 0*/) {
+
+    heap.push(make_pair(0, startIndex));    // Push starting node
+
+    while(!heap.empty()) {
+
+        int currentDistance = heap.top().first;
+        int currentNode = heap.top().second;
+
+        visitedNodes[currentNode] = true;
+        heap.pop();
+
+        if(distances[currentNode] < currentDistance) {  // If the current minimum distance is smaller than the one in the current pair, 
+                                                        // then there is no point in processing the pair further, 
+            continue;                                   // because it can't lead to shorter paths
+        }
+
+        for(auto edge : adjacencyList[currentNode]) {
+
+            if(!visitedNodes[edge.destination]) {       // If we have already processed a node, then the minimum distance to it has already been calculated
+
+                if(distances[edge.destination] > currentDistance + edge.cost) {
+                    
+                    distances[edge.destination] = currentDistance + edge.cost;
+                    heap.push(make_pair(distances[edge.destination], edge.destination));
+                }
+            }
+        }
+    }
+}   
 
 void Graph::TreeBuilderBFS(int startIndex, Graph& treeGraph, vector<bool>& visitedNodes) {
                                                                         // BFS that also builds a new graph(the BFS tree)
@@ -729,6 +761,35 @@ vector<int> Graph::UnweightedDistances(int startIndex /*= 0*/) {
     return distances;
 }
 
+vector<int> Graph::WeightedDistances(int startIndex /*= 0*/) {
+                                                // Computes the weighted distances from node of index startIndex to all other nodes
+                                                // Wrapper method for Dijkstra's algorithm
+    vector<int> distances;
+    vector<bool> visited;
+
+    priority_queue < pair<int, int>, vector< pair<int, int> >, greater< pair <int, int> > > heap; 
+    // The heap will contain pairs of (distance, node), where distance is the current total distance to node
+    
+
+    int infinity = 2147483647;      // Used for initializing distance vector
+
+    for(int i = 0; i < numberOfNodes; ++i) {
+
+        if(i == startIndex) {
+            distances.push_back(0);     
+        }
+        else {
+            distances.push_back(infinity);
+        }
+
+        visited.push_back(false);
+    }
+
+    Dijkstra(visited, distances, heap, startIndex);
+
+    return distances;
+}
+
 int Graph::NumberOfComponents() {
                                         // Computes number of components in undirected graph 
     int numberOfComponents = 0;
@@ -855,6 +916,5 @@ void Graph::BuildFromAdjacencyList(istream& inputStream) {          // Sets edge
         }
     }   
 }
-
 
 #pragma endregion

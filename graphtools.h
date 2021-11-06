@@ -7,49 +7,297 @@
 
 using namespace std;
 
-
-class Graph {
-
-    public:
-    
-    struct Edge {                                       // Auxiliary struct for holding edge information
-        int source; int destination; int cost;          // Source is the source node,
-                                                        // Destinaiton is the node the edge points towards, cost is the edge's cost
-        operator int() { return cost; } 
+struct Edge {                                       // Auxiliary struct for holding edge information
+        int source, destination, cost;          
         Edge(int source, int dest, int cost = 0): source(source), destination(dest), cost(cost){}
-
         Edge Flip() {return Edge(destination, source, cost);}   // Returns edge with source and destination swapped
+};
+
+template <typename T>
+class Heap {  
+
+public:
+ 
+    T Root();
+    T Extract();
+    void Pop();
+    void Insert(T value);
+    int Remove(T value);
+    void Build(vector<T> values);
+    vector<T> ExtractAll();
+
+    bool Empty() {
+        return tree.empty();
+    }
+    void Clear() {
+        tree.clear();
+    }
+
+    Heap(bool maxHeap = false) {
+        this->maxHeap = maxHeap;
+    }
+
+    Heap(vector<T> values, bool maxheap = false) {
+
+        for(auto value : values) {
+            Insert(value);
+        }
+    }
+
+    int GetNumberOfNodes() {
+        return tree.size();
+    }
+
+private:
+
+    bool maxHeap;
+    vector<T> tree;
+
+    int Parent(int node);
+    int LeftChild(int node);
+    int RightChild(int node);
+    void Descend(int node);
+    void Ascend(int node);
+    void Delete(int node);
+    void SwapNodes(int node1, int node2);
+    
+    
+    template<typename T0> static T0 Opposite(T0 x) {
+        return -x;
+    };
+    static string Opposite(string x) {
+        string newString = x;
+        for(int i = 0; i < x.size(); ++i) {
+            newString[i] = Opposite<char>(x[i]);
+        }
+        return newString;
+    };
+    template<typename T1, class T2> static pair<T1, T2> Opposite(pair<T1, T2> x)  {
+        return make_pair(Opposite(x.first), x.second);
     };
 
-    struct DisjointSets;
+};
+
+#pragma region HeapPublicMethods
+
+template<typename T>
+T Heap<T>::Root() {  // Returns minimum/maximum element 
+
+    if(maxHeap) {
+        return Opposite(tree[0]);
+    }
+    else {
+        return tree[0];
+    }
+}
+
+template<typename T>
+void Heap<T>::Insert(T value) { // Inserts element into heap
+
+    T newValue = value;
+    if(maxHeap) newValue = Opposite(value);
+
+    tree.push_back(newValue);
+    Ascend(tree.size() - 1);
+}
+
+template<typename T>
+void Heap<T>::Pop() {  // Removes minimum/maximum element from the heap
+    Delete(0);
+}
+
+template<typename T>
+T Heap<T>::Extract() {  // Removes minimum/maximum element from the heap and returns it
+    T root = Root();
+    Delete(0);
+    return root;
+}
+
+template<typename T>
+int Heap<T>::Remove(T value) {   // Removes a given element from the heap, returns 0 if element was not found, returns 1 on succesful removal
+
+    bool found = false;
+
+    for(int i = 0; i < tree.size(); ++i) {
+        if(tree[i] == value) {
+            found = true;
+            Delete(i);
+            break;
+        }
+    }
+
+    return found? 1 : 0;
+}
+
+template<typename T>
+void Heap<T>::Build(vector<T> values) {   // Inserts all elements from values into the heap
+    for(auto value : values) {
+        Insert(value);
+    }
+}
+
+template<typename T>
+vector<T> Heap<T>::ExtractAll() {      // Returns a sorted vector of all elements
+
+    vector<T> sortedVector;
+
+    while(!Empty()) {
+        sortedVector.push_back(Extract());
+    }
+
+    return sortedVector;
+}
+
+#pragma endregion
+
+#pragma region HeapPrivateMethods
+
+template<typename T>
+void Heap<T>::Descend(int node) {
+
+    T minimum = tree[node];
+    int left = LeftChild(node);
+    int right = RightChild(node);
+    int minIndex = node;
+
+    if(left) {
+        if(minimum > tree[left]) {
+            minIndex = left;
+            minimum = tree[left];
+        }
+    }
+
+    if(right) {
+        if(minimum > tree[right]) {
+            minIndex = right;
+        }
+    }
+
+    if(node != minIndex) {
+        SwapNodes(node, minIndex);
+        Descend(minIndex);
+    }
+}    
+
+template<typename T>
+void Heap<T>::Ascend(int node) {
+
+    int parent = Parent(node);
+
+    if(tree[parent] > tree[node]) {
+        SwapNodes(node, parent);
+        Ascend(parent);
+    }
+}
+
+template<typename T>
+void Heap<T>::Delete(int node) {
+    
+    SwapNodes(node, tree.size()-1);
+    tree.pop_back();
+    Descend(node);
+}
+
+template<typename T>
+void Heap<T>::SwapNodes(int node1, int node2) {
+
+    T swap = tree[node1];
+    tree[node1] = tree[node2];
+    tree[node2] = swap;
+}
+
+template<typename T>
+int Heap<T>::Parent(int node) {
+
+    if(node > 0) {
+        return (node - 1) / 2;
+    }
+    else return 0;
+}
+
+template<typename T>
+int Heap<T>::LeftChild(int node) {
+    int left = node * 2 + 1;
+
+    if( left < tree.size()) {
+        return left;
+    }
+    else return 0;
+}
+
+template<typename T>
+int Heap<T>::RightChild(int node) {
+    int right = node * 2 + 2;
+
+    if( right < tree.size()) {
+        return right;
+    }
+    else return 0;
+}
+
+#pragma endregion
+
+struct DisjointSets {    // Struct used as helper for creating and manipulating disjoint sets of nodes
+
+    int Root(int node);
+    void Union(int node1, int node2);
+
+    DisjointSets(int numberOfNodes): numberOfNodes(numberOfNodes) {
+
+        for(int node = 0; node < numberOfNodes; ++node) {
+            rank.push_back(1);
+            parent.push_back(node);
+        }
+    }
 
     private:
 
-        bool directed;
-        bool weighted;
-
         int numberOfNodes;
-        int numberOfEdges;
 
-        vector < int > values;                              // The value of each node 
-        vector < vector < Edge > > adjacencyList;           // adjacencyList[X] holds the information of each edge that X has
+        vector<int> rank;           // Holds the rank of the set of each node, for optimizing unions
+        vector<int> parent;         // Either the direct parent's index or the root node index 
 
-        
-        void Dijkstra(vector<bool>& visitedNodes, vector<int>& distances, priority_queue < pair<int, int>, vector< pair<int, int> >, greater< pair <int, int> > >& heap, int startIndex = 0);        
-        void BFS(vector<int>& visitedNodes, vector<int>& distances, int startIndex = 0);
-        void TreeBuilderBFS(int startIndex, Graph& treeGraph, vector<bool>& visitedNodes);
-        void DFS(vector<int>& visitedNodes, int marker = 1, int nodeIndex = 0);
-        void StronglyConnectedDFS(int currentNode, vector<vector<int>>& scc, vector<int>& order, vector<int>& lowest, stack<int>& nodeStack, vector<bool>& onStack, int& counter);
-        void BiconnectedDFS(int currentNode, int parent, int currentDepth, vector< vector <int>>& bcc, vector<int>& depth, vector<int>& lowest, stack<int>& nodeStack, vector<bool>& visited);
-        void CriticalEdgesDFS(int currentNode, int parent, vector <Edge>& cc, vector<int>& depth, vector<int>& lowest, int& counter);
-        void TopologicalDFS(int currentNode, stack<int>& orderStack, vector<bool>& visitedNodes);
-        void TreeBuilderDFS(int currentNode, int treeCurrentNode, Graph& treeGraph, vector<bool>& visitedNodes);
+};
 
-        static bool CompareEdges(Edge x, Edge y) {
-            return (x.cost < y.cost); 
-        }
+#pragma region DisjointSetsPublicMethods
 
-    public:
+int DisjointSets::Root(int node) {        // Returns the root of the node's subtree
+
+    int root = node;
+
+    while(parent[root] != root) {
+        root = parent[root];        // Go up through the set until its root is found
+    }
+
+
+    while(node != parent[node]) {   // Update parent[node] to the set's root, for all nodes up to the root
+        int swap = parent[node];
+        parent[node] = root;
+        node = swap; 
+    }
+
+    return root;
+}
+
+void DisjointSets::Union(int node1, int node2) {  // Merges the two subtrees by connecting one's root to the other's
+    node1 = Root(node1);            // Get the roots 
+    node2 = Root(node2);
+
+    if (rank[node1] > rank[node2]) {    // Link roots, smaller rank gets attached to higher rank 
+        parent[node2] = node1;
+    }
+    else {
+        parent[node1] = node2;
+    }
+    if(rank[node1] == rank[node2]) {
+        ++rank[node2];              // Increase rank of new set if sets were equal 
+    }
+}
+
+#pragma endregion
+
+class Graph {
+public:
 
         int TotalCost();
         int NumberOfComponents();
@@ -66,48 +314,14 @@ class Graph {
         Graph BFSTree(int startIndex);
         Graph DFSTrees();
         
-        static bool CheckHavelHakimi(vector<int>& degrees);
-
         void BuildFromAdjacencyList(istream& inputStream);
         void BuildFromAdjacencyMatrix(istream& inputStream);
 
-        void AddEdge(int source, int dest, int cost = 0) {
+        void AddEdge(int source, int dest, int cost = 0);
+        void AddEdge(Edge newEdge);
+        void AddNode(int value = 0);
 
-            Edge newEdge(source, dest, cost);
-
-            adjacencyList[source].push_back(newEdge);
-
-            if(!this->directed) {
-
-                adjacencyList[dest].push_back(newEdge.Flip());
-            }
-
-            ++numberOfEdges;
-        }
-
-        void AddEdge(Edge newEdge) {
-
-            adjacencyList[newEdge.source].push_back(newEdge);
-
-            if(!this->directed) {
-
-                adjacencyList[newEdge.destination].push_back(newEdge.Flip());
-            }
-
-            ++numberOfEdges;
-        }
-
-        void AddNode(int value = 0) {
-
-            vector<Edge> tempVector;
-            adjacencyList.push_back(tempVector);
-    
-            values.push_back(value);
-
-            ++numberOfNodes;
-        }
-
-
+        static bool CheckHavelHakimi(vector<int>& degrees);
 
 
 #pragma region GraphConstructors
@@ -192,58 +406,476 @@ class Graph {
 
 #pragma endregion
 
+    private:
+
+        bool directed;
+        bool weighted;
+
+        int numberOfNodes;
+        int numberOfEdges;
+
+        vector < int > values;                              // The value of each node 
+        vector < vector < Edge > > adjacencyList;           // adjacencyList[X] holds the information of each edge that X has
+
+        
+        void Dijkstra(vector<bool>& visitedNodes, vector<int>& distances, priority_queue < pair<int, int>, vector< pair<int, int> >, greater< pair <int, int> > >& heap, int startIndex = 0);        
+        void BFS(vector<int>& visitedNodes, vector<int>& distances, int startIndex = 0);
+        void TreeBuilderBFS(int startIndex, Graph& treeGraph, vector<bool>& visitedNodes);
+        void DFS(vector<int>& visitedNodes, int marker = 1, int nodeIndex = 0);
+        void StronglyConnectedDFS(int currentNode, vector<vector<int>>& scc, vector<int>& order, vector<int>& lowest, stack<int>& nodeStack, vector<bool>& onStack, int& counter);
+        void BiconnectedDFS(int currentNode, int parent, int currentDepth, vector< vector <int>>& bcc, vector<int>& depth, vector<int>& lowest, stack<int>& nodeStack, vector<bool>& visited);
+        void CriticalEdgesDFS(int currentNode, int parent, vector <Edge>& cc, vector<int>& depth, vector<int>& lowest, int& counter);
+        void TopologicalDFS(int currentNode, stack<int>& orderStack, vector<bool>& visitedNodes);
+        void TreeBuilderDFS(int currentNode, int treeCurrentNode, Graph& treeGraph, vector<bool>& visitedNodes);
+
+        static bool CompareEdges(Edge x, Edge y);
+
+    
 };
 
-struct Graph::DisjointSets {    // Struct used as helper for creating and manipulating disjoint sets of nodes
+#pragma region GraphPublicMethods
 
-    int numberOfNodes;
+void Graph::AddEdge(int source, int dest, int cost /*= 0*/) {
 
-    vector<int> rank;           // Holds the rank of the set of each node, for optimizing unions
-    vector<int> parent;         // Either the direct parent's index or the root node index 
+    Edge newEdge(source, dest, cost);
 
-    DisjointSets(int numberOfNodes): numberOfNodes(numberOfNodes) {
+    adjacencyList[source].push_back(newEdge);
+
+    if(!this->directed) {
+
+        adjacencyList[dest].push_back(newEdge.Flip());
+    }
+
+    ++numberOfEdges;
+}
+
+void Graph::AddEdge(Edge newEdge) {
+
+    adjacencyList[newEdge.source].push_back(newEdge);
+
+    if(!this->directed) {
+
+        adjacencyList[newEdge.destination].push_back(newEdge.Flip());
+    }
+
+    ++numberOfEdges;
+}
+
+void Graph::AddNode(int value /*= 0*/) {
+
+    vector<Edge> tempVector;
+    adjacencyList.push_back(tempVector);
+
+    values.push_back(value);
+
+    ++numberOfNodes;
+}
+
+vector<Edge> Graph::GetAllEdges() {
+
+    vector<Edge> edges;
+
+    if (directed) {
+        for(int node = 0; node < numberOfNodes; ++node) {
+            for(auto edge : adjacencyList[node]) {
+                edges.push_back(edge);            
+            }
+        }
+    }
+    else {
+    
+        vector<bool> visited;                   // Used for not returning duplicate edges in undirected graphs
+
+        for(int i = 0; i < numberOfNodes; ++i) {
+            visited.push_back(false);
+        }
 
         for(int node = 0; node < numberOfNodes; ++node) {
-            rank.push_back(1);
-            parent.push_back(node);
+            for(auto edge : adjacencyList[node]) {
+                if (!visited[edge.destination]) {
+                    edges.push_back(edge);
+                }
+            }
+        
+        visited[node] = true;
+
         }
     }
 
-    int Root(int node) {
+    return edges;
+}
 
-        int root = node;
+Graph Graph::MinimumSpanningTree() {
+                                                // Returns a graph that is a minimum spanning tree of this graph, using Kruskal's algorithm and disjoint sets
 
-        while(parent[root] != root) {
-            root = parent[root];        // Go up through the set until its root is found
+    Graph treeGraph(numberOfNodes, 0, directed, weighted);  // Initialize graph to be returned
+                                                            // Has 0 edges currently because numberOfEdges will be incremented by AddEdge()
+    vector<Edge> sortedEdges = GetAllEdges();
+    sort(sortedEdges.begin(), sortedEdges.end(), CompareEdges);
+
+    DisjointSets sets(numberOfNodes);           // Used for keeping track of the new trees components
+
+    for(int i = 0; i < numberOfEdges; ++i) {
+
+        if( sets.Root(sortedEdges[i].source) != sets.Root(sortedEdges[i].destination) )  {       // Check if nodes are in separate components
+
+            sets.Union(sortedEdges[i].source, sortedEdges[i].destination);
+            treeGraph.AddEdge(sortedEdges[i]);
         }
-
-
-        while(node != parent[node]) {   // Update parent[node] to the set's root, for all nodes up to the root
-            int swap = parent[node];
-            parent[node] = root;
-            node = swap; 
-        }
-
-        return root;
     }
 
-    void Union(int node1, int node2) {
-        node1 = Root(node1);            // Get the roots 
-        node2 = Root(node2);
+    return treeGraph;
+}
 
-        if (rank[node1] > rank[node2]) {    // Link roots, smaller rank gets attached to higher rank 
-            parent[node2] = node1;
+int Graph::TotalCost() {
+                            // Returns the summed cost of all edges in graph
+    int totalCost = 0;
+
+    vector<Edge> edges = GetAllEdges();
+
+    for(auto edge : edges) {
+        
+        totalCost += edge.cost;
+    }
+
+    return totalCost;
+}
+
+Graph Graph::DFSTree(int startIndex) {
+                                            // Returns a graph object of the DFS tree of node with startIndex index
+                                            // Node of index startIndex will be the node of index 0 in the new graph
+    Graph treeGraph(1, 0, directed, weighted);        // Initialize empty graph with one node
+    vector<bool> visitedNodes;
+
+    for(int i = 0; i < numberOfNodes; ++i) {
+
+        visitedNodes.push_back(false);
+    }
+
+    TreeBuilderDFS(startIndex, 0, treeGraph, visitedNodes);
+    
+    return treeGraph;
+}
+
+Graph Graph::DFSTrees() {
+                                            // Returns a graph object of the DFS tree of node with startIndex index
+                                            // Node of index startIndex will be the node of index 0 in the new graph
+    Graph treeGraph(0, 0, directed, weighted);        // Initialize empty graph
+    vector<bool> visitedNodes;
+
+    for(int i = 0; i < numberOfNodes; ++i) {
+
+        visitedNodes.push_back(false);
+    }
+
+    for(int node = 0; node < numberOfNodes; ++node) {
+        
+        if(!visitedNodes[node]) {
+
+            treeGraph.AddNode();
+            TreeBuilderDFS(node, treeGraph.numberOfNodes-1, treeGraph, visitedNodes);
+        }
+    }
+
+    return treeGraph;
+}
+
+Graph Graph::BFSTree(int startIndex) {
+
+    Graph treeGraph(0, 0, directed, weighted);
+    vector<bool> visitedNodes;
+
+    for(int i = 0; i < numberOfNodes; ++i) {
+
+        visitedNodes.push_back(false);
+    }
+
+    TreeBuilderBFS(startIndex, treeGraph, visitedNodes);
+
+    return treeGraph;
+}
+
+vector<int> Graph::TopologicalSort() {
+                                            // Returns the list of nodes in topologically sorted order
+                                            // Should only be applied on directed graphs
+    vector<int> sortedNodes;
+
+    stack<int> orderStack;                  // By using a stack, the elements in pop order will form the topologically sorted list
+    vector<int> depth;
+    vector<bool> visited;
+
+    for(int i = 0; i < numberOfNodes; ++i) {
+
+        visited.push_back(false);    
+    }
+
+    for(int i = 0; i < numberOfNodes; ++i) {
+
+        if(!visited[i]) { 
+            TopologicalDFS(i, orderStack, visited);
+        }
+    }
+
+    for(int i = 0; i < numberOfNodes; ++i) {
+
+        sortedNodes.push_back(orderStack.top());
+        orderStack.pop();
+    }
+
+    return sortedNodes;
+
+}
+
+bool Graph::CheckHavelHakimi(vector<int>& degrees) {
+                                                                            // Receives a list of node degrees and returns true if a corelated graph can exist through the Havel-Hakimi algorithm
+    int numberOfNodes = degrees.size();
+
+    int sum = 0; 
+
+    for(int degree : degrees) {
+
+        sum += degree;
+
+        if (degree >= numberOfNodes) {
+                                    // If degree is > n-1 then there are not enough nodes, therefore a graph doesn't exist
+            return false; 
+        }
+    }
+
+    if(sum % 2) {
+                            // If sum of degrees is odd then a graph doesn't exist
+        return false; 
+    }
+
+    sort(degrees.begin(), degrees.end());           // Sort vector of degrees, then iterate through it in descending order
+
+    --numberOfNodes; 
+
+    while(sum > 0) {
+
+        int currentNode = degrees[numberOfNodes];
+
+        for(int i = numberOfNodes; i > numberOfNodes - currentNode - 1; --i ) {
+            
+            --degrees[i];                       // Decrement the previous max(degrees) values
+            if(degrees[i] < 0) {
+                                               // If any number in the vector falls below 0, then a graph doesn't exist
+                return false;
+            }
+        }
+
+        --numberOfNodes;        // "Eliminating" the node we resolved the degrees of
+        sum -= 2*currentNode;
+       
+        degrees.pop_back();
+        sort(degrees.begin(), degrees.end());   // Bubble sort might be faster here
+    }
+    
+    return true;            // If this point is reached then the vector is now [0, 0, .. 0] and a graph exists for the given set of degrees          
+}
+
+vector<Edge> Graph::CriticalConnections() {
+                                                         // Tested on leetcode(Critical Connections problem)  
+    vector<Edge> cc;                    // The list of critical edges
+
+    vector<int> order;                  // Node X is the order[x]-th node to be found during DFS
+    vector<int> lowest;                 // lowest[X] is the minimum order[Y], where node Y is connected to node X
+     
+    int counter = 0;
+
+    for(int i = 0; i < numberOfNodes; ++i) {
+
+        order.push_back(-1);            // -1 order means node hasn't been visited yet
+        lowest.push_back(-1);
+    }
+
+    CriticalEdgesDFS(0, -1, cc, order, lowest, counter);  // Root node has no parent
+
+    return cc;
+} 
+
+vector<int> Graph::UnweightedDistances(int startIndex /*= 0*/) {
+                                                                        // Wrapper Method for calculating unweighted distances to each node form startIndex through BFS
+                                                                        // Saves distances in distances parameter(distances vector should be empty when calling this method)
+    
+    vector<int> visited;
+    vector<int> distances;
+
+    
+    for(int i = 0; i < numberOfNodes; ++i) {
+        visited.push_back(0);
+        distances.push_back(-1);                // -1 means there is no path to a certain node
+    }
+
+    BFS(visited, distances, startIndex);
+
+    return distances;
+}
+
+vector<int> Graph::WeightedDistances(int startIndex /*= 0*/) {
+                                                // Computes the weighted distances from node of index startIndex to all other nodes
+                                                // Wrapper method for Dijkstra's algorithm
+    vector<int> distances;
+    vector<bool> visited;
+
+    priority_queue < pair<int, int>, vector< pair<int, int> >, greater< pair <int, int> > > heap; 
+    // The heap will contain pairs of (distance, node), where distance is the current total distance to node
+    
+
+    int infinity = 2147483647;      // Used for initializing distance vector
+
+    for(int i = 0; i < numberOfNodes; ++i) {
+
+        if(i == startIndex) {
+            distances.push_back(0);     
         }
         else {
-            parent[node1] = node2;
+            distances.push_back(infinity);
         }
-        if(rank[node1] == rank[node2]) {
-            ++rank[node2];              // Increase rank of new set if sets were equal 
+
+        visited.push_back(false);
+    }
+
+    Dijkstra(visited, distances, heap, startIndex);
+
+    return distances;
+}
+
+int Graph::NumberOfComponents() {
+                                        // Computes number of components in undirected graph 
+    int numberOfComponents = 0;
+
+    vector<int> visited;
+    for(int i = 0; i < numberOfNodes; ++i) {
+        visited.push_back(0);
+    }
+
+    for(int i = 0; i < numberOfNodes; ++i) {
+
+        if (!visited[i]) {
+            ++numberOfComponents;
+            DFS(visited, numberOfComponents, i);
         }
     }
-};
+
+    return numberOfComponents;
+}
+
+vector< vector <int> > Graph::BiconnectedComponents() {
+                                                                    // Returns the list of biconnected components in graph
+
+    vector< vector<int> > bcc;      // The list of BCCs to be returned
+
+    stack<int> nodeStack;           // The stack of visited nodes
+    
+    vector<int> depth;              // Holds the depth of each node in the DFS tree
+    vector<int> lowest;             // Holds the lowest depth a node can reach through its descendants
+    vector<bool> visited;           // For marking visited nodes
+
+    for(int i = 0; i < numberOfNodes; ++i) {
+        depth.push_back(-1);        // Initialization
+        lowest.push_back(-1);   
+        visited.push_back(false);
+    }
+
+    BiconnectedDFS(0, -1, 0, bcc, depth, lowest, nodeStack, visited);       // Root node (0) has no parent
+
+    return bcc;
+}
+
+vector< vector <int> > Graph::StronglyConnectedComponents() {
+                                                                    // Computes the number of strongly connected components in directed graph through Tarjan's algorithm
+    vector< vector <int> > scc;         // The list of strongly connected components to be returned
+
+    stack<int> nodeStack;               // Stack to be used in tarjan's algorithm
+
+    vector<int> order;                  // Node X is the order[x]-th node to be found during DFS
+    vector<int> lowest;                 // lowest[X] is the minimum order[Y], where node Y is connected to node X
+    vector<bool> onStack;               // onStack[X] is true if node X is currently on the stack 
+    
+    int counter = 0;                    // Counter for the order vector
+
+    for(int i = 0; i < numberOfNodes; ++i) {
+        order.push_back(-1);            // -1 means node hasn't been visited
+        lowest.push_back(-1);           
+        onStack.push_back(false);
+    }
+
+
+    for(int node = 0; node < numberOfNodes; ++node) {
+
+        if (order[node] < 0) {
+
+            StronglyConnectedDFS(node, scc, order, lowest, nodeStack, onStack, counter);
+        }
+    }
+
+    return scc;
+}
+
+void Graph::BuildFromAdjacencyMatrix(istream& inputStream) {        // Sets edges between nodes by reading an adjacency matrix from inputStream
+                                                                    // Should only be used if numberOfEdges has already been set 
+
+    int matrixValue;             // If matrixValue is 0, there is no edge, if matrixValue != 0, then there is an edge of cost matrixValue
+
+    for(int i = 0; i < numberOfNodes; ++i) {
+        for (int j = 0; j < numberOfNodes; ++j) {
+
+            inputStream >> matrixValue;
+
+            if(matrixValue) {
+                
+                if(!weighted) {
+                    matrixValue = 0;
+                }
+
+                Edge newEdge(i, j, matrixValue);
+
+                adjacencyList[i].push_back( newEdge );
+
+                if(!directed) {    
+                    adjacencyList[j].push_back( newEdge.Flip() );
+                }
+               
+            }
+        } 
+    }
+}
+
+void Graph::BuildFromAdjacencyList(istream& inputStream) {          // Sets edges between nodes by reading adjancency list pairs from inputStream
+                                                                    // Should only be used if numberOfEdges has already been set 
+                                                                    
+    int node1, node2, cost;
+
+    for(int i = 0; i < numberOfEdges; ++i) {
+
+        inputStream >> node1 >> node2;
+ 
+        if(weighted) {
+            inputStream >> cost;
+        }
+        else {
+            cost = 0;
+        }
+        
+        Edge newEdge(node1, node2, cost);
+
+        adjacencyList[node1].push_back( newEdge );
+      
+        if(!directed) {
+                adjacencyList[node2].push_back( newEdge.Flip() );
+        }
+    }   
+}
+
+
+#pragma endregion
 
 #pragma region GraphPrivateMethods
+
+bool Graph::CompareEdges(Edge x, Edge y) {
+    return (x.cost < y.cost); 
+}
 
 void Graph::Dijkstra(vector<bool>& visitedNodes, vector<int>& distances, priority_queue < pair<int, int>, vector< pair<int, int> >, greater< pair <int, int> > >& heap, int startIndex /*= 0*/) {
 
@@ -514,407 +1146,6 @@ void Graph::TopologicalDFS(int currentNode, stack<int>& orderStack, vector<bool>
     }
     
     orderStack.push(currentNode);           // The stack is formed in the return order of the DFS
-}
-
-#pragma endregion
-
-#pragma region GraphPublicMethods
-
-vector<Graph::Edge> Graph::GetAllEdges() {
-
-    vector<Edge> edges;
-
-    if (directed) {
-        for(int node = 0; node < numberOfNodes; ++node) {
-            for(auto edge : adjacencyList[node]) {
-                edges.push_back(edge);            
-            }
-        }
-    }
-    else {
-    
-        vector<bool> visited;                   // Used for not returning duplicate edges in undirected graphs
-
-        for(int i = 0; i < numberOfNodes; ++i) {
-            visited.push_back(false);
-        }
-
-        for(int node = 0; node < numberOfNodes; ++node) {
-            for(auto edge : adjacencyList[node]) {
-                if (!visited[edge.destination]) {
-                    edges.push_back(edge);
-                }
-            }
-        
-        visited[node] = true;
-
-        }
-    }
-
-    return edges;
-}
-
-Graph Graph::MinimumSpanningTree() {
-                                                // Returns a graph that is a minimum spanning tree of this graph, using Kruskal's algorithm and disjoint sets
-
-    Graph treeGraph(numberOfNodes, 0, directed, weighted);  // Initialize graph to be returned
-                                                            // Has 0 edges currently because numberOfEdges will be incremented by AddEdge()
-    vector<Edge> sortedEdges = GetAllEdges();
-    sort(sortedEdges.begin(), sortedEdges.end(), CompareEdges);
-
-    DisjointSets sets(numberOfNodes);           // Used for keeping track of the new trees components
-
-    for(int i = 0; i < numberOfEdges; ++i) {
-
-        if( sets.Root(sortedEdges[i].source) != sets.Root(sortedEdges[i].destination) )  {       // Check if nodes are in separate components
-
-            sets.Union(sortedEdges[i].source, sortedEdges[i].destination);
-            treeGraph.AddEdge(sortedEdges[i]);
-        }
-    }
-
-    return treeGraph;
-}
-
-int Graph::TotalCost() {
-                            // Returns the summed cost of all edges in graph
-    int totalCost = 0;
-
-    vector<Edge> edges = GetAllEdges();
-
-    for(auto edge : edges) {
-        
-        totalCost += edge.cost;
-    }
-
-    return totalCost;
-}
-
-Graph Graph::DFSTree(int startIndex) {
-                                            // Returns a graph object of the DFS tree of node with startIndex index
-                                            // Node of index startIndex will be the node of index 0 in the new graph
-    Graph treeGraph(1, 0, directed, weighted);        // Initialize empty graph with one node
-    vector<bool> visitedNodes;
-
-    for(int i = 0; i < numberOfNodes; ++i) {
-
-        visitedNodes.push_back(false);
-    }
-
-    TreeBuilderDFS(startIndex, 0, treeGraph, visitedNodes);
-    
-    return treeGraph;
-}
-
-Graph Graph::DFSTrees() {
-                                            // Returns a graph object of the DFS tree of node with startIndex index
-                                            // Node of index startIndex will be the node of index 0 in the new graph
-    Graph treeGraph(0, 0, directed, weighted);        // Initialize empty graph
-    vector<bool> visitedNodes;
-
-    for(int i = 0; i < numberOfNodes; ++i) {
-
-        visitedNodes.push_back(false);
-    }
-
-    for(int node = 0; node < numberOfNodes; ++node) {
-        
-        if(!visitedNodes[node]) {
-
-            treeGraph.AddNode();
-            TreeBuilderDFS(node, treeGraph.numberOfNodes-1, treeGraph, visitedNodes);
-        }
-    }
-
-    return treeGraph;
-}
-
-Graph Graph::BFSTree(int startIndex) {
-
-    Graph treeGraph(0, 0, directed, weighted);
-    vector<bool> visitedNodes;
-
-    for(int i = 0; i < numberOfNodes; ++i) {
-
-        visitedNodes.push_back(false);
-    }
-
-    TreeBuilderBFS(startIndex, treeGraph, visitedNodes);
-
-    return treeGraph;
-}
-
-vector<int> Graph::TopologicalSort() {
-                                            // Returns the list of nodes in topologically sorted order
-                                            // Should only be applied on directed graphs
-    vector<int> sortedNodes;
-
-    stack<int> orderStack;                  // By using a stack, the elements in pop order will form the topologically sorted list
-    vector<int> depth;
-    vector<bool> visited;
-
-    for(int i = 0; i < numberOfNodes; ++i) {
-
-        visited.push_back(false);    
-    }
-
-    for(int i = 0; i < numberOfNodes; ++i) {
-
-        if(!visited[i]) { 
-            TopologicalDFS(i, orderStack, visited);
-        }
-    }
-
-    for(int i = 0; i < numberOfNodes; ++i) {
-
-        sortedNodes.push_back(orderStack.top());
-        orderStack.pop();
-    }
-
-    return sortedNodes;
-
-}
-
-bool Graph::CheckHavelHakimi(vector<int>& degrees) {
-                                                                            // Receives a list of node degrees and returns true if a corelated graph can exist through the Havel-Hakimi algorithm
-    int numberOfNodes = degrees.size();
-
-    int sum = 0; 
-
-    for(int degree : degrees) {
-
-        sum += degree;
-
-        if (degree >= numberOfNodes) {
-                                    // If degree is > n-1 then there are not enough nodes, therefore a graph doesn't exist
-            return false; 
-        }
-    }
-
-    if(sum % 2) {
-                            // If sum of degrees is odd then a graph doesn't exist
-        return false; 
-    }
-
-    sort(degrees.begin(), degrees.end());           // Sort vector of degrees, then iterate through it in descending order
-
-    --numberOfNodes; 
-
-    while(sum > 0) {
-
-        int currentNode = degrees[numberOfNodes];
-
-        for(int i = numberOfNodes; i > numberOfNodes - currentNode - 1; --i ) {
-            
-            --degrees[i];                       // Decrement the previous max(degrees) values
-            if(degrees[i] < 0) {
-                                               // If any number in the vector falls below 0, then a graph doesn't exist
-                return false;
-            }
-        }
-
-        --numberOfNodes;        // "Eliminating" the node we resolved the degrees of
-        sum -= 2*currentNode;
-       
-        degrees.pop_back();
-        sort(degrees.begin(), degrees.end());   // Bubble sort might be faster here
-    }
-    
-    return true;            // If this point is reached then the vector is now [0, 0, .. 0] and a graph exists for the given set of degrees          
-}
-
-vector<Graph::Edge> Graph::CriticalConnections() {
-                                                         // Tested on leetcode(Critical Connections problem)  
-    vector<Edge> cc;                    // The list of critical edges
-
-    vector<int> order;                  // Node X is the order[x]-th node to be found during DFS
-    vector<int> lowest;                 // lowest[X] is the minimum order[Y], where node Y is connected to node X
-     
-    int counter = 0;
-
-    for(int i = 0; i < numberOfNodes; ++i) {
-
-        order.push_back(-1);            // -1 order means node hasn't been visited yet
-        lowest.push_back(-1);
-    }
-
-    CriticalEdgesDFS(0, -1, cc, order, lowest, counter);  // Root node has no parent
-
-    return cc;
-} 
-
-vector<int> Graph::UnweightedDistances(int startIndex /*= 0*/) {
-                                                                        // Wrapper Method for calculating unweighted distances to each node form startIndex through BFS
-                                                                        // Saves distances in distances parameter(distances vector should be empty when calling this method)
-    
-    vector<int> visited;
-    vector<int> distances;
-
-    
-    for(int i = 0; i < numberOfNodes; ++i) {
-        visited.push_back(0);
-        distances.push_back(-1);                // -1 means there is no path to a certain node
-    }
-
-    BFS(visited, distances, startIndex);
-
-    return distances;
-}
-
-vector<int> Graph::WeightedDistances(int startIndex /*= 0*/) {
-                                                // Computes the weighted distances from node of index startIndex to all other nodes
-                                                // Wrapper method for Dijkstra's algorithm
-    vector<int> distances;
-    vector<bool> visited;
-
-    priority_queue < pair<int, int>, vector< pair<int, int> >, greater< pair <int, int> > > heap; 
-    // The heap will contain pairs of (distance, node), where distance is the current total distance to node
-    
-
-    int infinity = 2147483647;      // Used for initializing distance vector
-
-    for(int i = 0; i < numberOfNodes; ++i) {
-
-        if(i == startIndex) {
-            distances.push_back(0);     
-        }
-        else {
-            distances.push_back(infinity);
-        }
-
-        visited.push_back(false);
-    }
-
-    Dijkstra(visited, distances, heap, startIndex);
-
-    return distances;
-}
-
-int Graph::NumberOfComponents() {
-                                        // Computes number of components in undirected graph 
-    int numberOfComponents = 0;
-
-    vector<int> visited;
-    for(int i = 0; i < numberOfNodes; ++i) {
-        visited.push_back(0);
-    }
-
-    for(int i = 0; i < numberOfNodes; ++i) {
-
-        if (!visited[i]) {
-            ++numberOfComponents;
-            DFS(visited, numberOfComponents, i);
-        }
-    }
-
-    return numberOfComponents;
-}
-
-vector< vector <int> > Graph::BiconnectedComponents() {
-                                                                    // Returns the list of biconnected components in graph
-
-    vector< vector<int> > bcc;      // The list of BCCs to be returned
-
-    stack<int> nodeStack;           // The stack of visited nodes
-    
-    vector<int> depth;              // Holds the depth of each node in the DFS tree
-    vector<int> lowest;             // Holds the lowest depth a node can reach through its descendants
-    vector<bool> visited;           // For marking visited nodes
-
-    for(int i = 0; i < numberOfNodes; ++i) {
-        depth.push_back(-1);        // Initialization
-        lowest.push_back(-1);   
-        visited.push_back(false);
-    }
-
-    BiconnectedDFS(0, -1, 0, bcc, depth, lowest, nodeStack, visited);       // Root node (0) has no parent
-
-    return bcc;
-}
-
-vector< vector <int> > Graph::StronglyConnectedComponents() {
-                                                                    // Computes the number of strongly connected components in directed graph through Tarjan's algorithm
-    vector< vector <int> > scc;         // The list of strongly connected components to be returned
-
-    stack<int> nodeStack;               // Stack to be used in tarjan's algorithm
-
-    vector<int> order;                  // Node X is the order[x]-th node to be found during DFS
-    vector<int> lowest;                 // lowest[X] is the minimum order[Y], where node Y is connected to node X
-    vector<bool> onStack;               // onStack[X] is true if node X is currently on the stack 
-    
-    int counter = 0;                    // Counter for the order vector
-
-    for(int i = 0; i < numberOfNodes; ++i) {
-        order.push_back(-1);            // -1 means node hasn't been visited
-        lowest.push_back(-1);           
-        onStack.push_back(false);
-    }
-
-
-    for(int node = 0; node < numberOfNodes; ++node) {
-
-        if (order[node] < 0) {
-
-            StronglyConnectedDFS(node, scc, order, lowest, nodeStack, onStack, counter);
-        }
-    }
-
-    return scc;
-}
-
-void Graph::BuildFromAdjacencyMatrix(istream& inputStream) {        // Sets edges between nodes by reading an adjacency matrix from inputStream
-                                                                    // Should only be used if numberOfEdges has already been set 
-
-    int matrixValue;             // If matrixValue is 0, there is no edge, if matrixValue != 0, then there is an edge of cost matrixValue
-
-    for(int i = 0; i < numberOfNodes; ++i) {
-        for (int j = 0; j < numberOfNodes; ++j) {
-
-            inputStream >> matrixValue;
-
-            if(matrixValue) {
-                
-                if(!weighted) {
-                    matrixValue = 0;
-                }
-
-                Edge newEdge(i, j, matrixValue);
-
-                adjacencyList[i].push_back( newEdge );
-
-                if(!directed) {    
-                    adjacencyList[j].push_back( newEdge.Flip() );
-                }
-               
-            }
-        } 
-    }
-}
-
-void Graph::BuildFromAdjacencyList(istream& inputStream) {          // Sets edges between nodes by reading adjancency list pairs from inputStream
-                                                                    // Should only be used if numberOfEdges has already been set 
-                                                                    
-    int node1, node2, cost;
-
-    for(int i = 0; i < numberOfEdges; ++i) {
-
-        inputStream >> node1 >> node2;
- 
-        if(weighted) {
-            inputStream >> cost;
-        }
-        else {
-            cost = 0;
-        }
-        
-        Edge newEdge(node1, node2, cost);
-
-        adjacencyList[node1].push_back( newEdge );
-      
-        if(!directed) {
-                adjacencyList[node2].push_back( newEdge.Flip() );
-        }
-    }   
 }
 
 #pragma endregion

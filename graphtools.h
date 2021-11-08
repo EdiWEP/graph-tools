@@ -323,6 +323,7 @@ public:
 
         static bool CheckHavelHakimi(vector<int>& degrees);
 
+        
 
 #pragma region GraphConstructors
 
@@ -418,7 +419,7 @@ public:
         vector < vector < Edge > > adjacencyList;           // adjacencyList[X] holds the information of each edge that X has
 
         
-        void Dijkstra(vector<bool>& visitedNodes, vector<int>& distances, priority_queue < pair<int, int>, vector< pair<int, int> >, greater< pair <int, int> > >& heap, int startIndex = 0);        
+        void Dijkstra(vector<bool>& visitedNodes, vector<int>& distances, Heap< pair<int, int>>& heap, int startIndex = 0);        
         void BFS(vector<int>& visitedNodes, vector<int>& distances, int startIndex = 0);
         void TreeBuilderBFS(int startIndex, Graph& treeGraph, vector<bool>& visitedNodes);
         void DFS(vector<int>& visitedNodes, int marker = 1, int nodeIndex = 0);
@@ -718,7 +719,7 @@ vector<int> Graph::WeightedDistances(int startIndex /*= 0*/) {
     vector<int> distances;
     vector<bool> visited;
 
-    priority_queue < pair<int, int>, vector< pair<int, int> >, greater< pair <int, int> > > heap; 
+    Heap< pair<int, int> > heap; 
     // The heap will contain pairs of (distance, node), where distance is the current total distance to node
     
 
@@ -877,17 +878,17 @@ bool Graph::CompareEdges(Edge x, Edge y) {
     return (x.cost < y.cost); 
 }
 
-void Graph::Dijkstra(vector<bool>& visitedNodes, vector<int>& distances, priority_queue < pair<int, int>, vector< pair<int, int> >, greater< pair <int, int> > >& heap, int startIndex /*= 0*/) {
+void Graph::Dijkstra(vector<bool>& visitedNodes, vector<int>& distances, Heap < pair<int, int> >& heap, int startIndex /*= 0*/) {
 
-    heap.push(make_pair(0, startIndex));    // Push starting node
+    heap.Insert(make_pair(0, startIndex));    // Push starting node
 
-    while(!heap.empty()) {
+    while(!heap.Empty()) {
 
-        int currentDistance = heap.top().first;
-        int currentNode = heap.top().second;
+        int currentDistance = heap.Root().first;
+        int currentNode = heap.Root().second;
 
         visitedNodes[currentNode] = true;
-        heap.pop();
+        heap.Pop();
 
         if(distances[currentNode] < currentDistance) {  // If the current minimum distance is smaller than the one in the current pair, 
                                                         // then there is no point in processing the pair further, 
@@ -901,7 +902,7 @@ void Graph::Dijkstra(vector<bool>& visitedNodes, vector<int>& distances, priorit
                 if(distances[edge.destination] > currentDistance + edge.cost) {
                     
                     distances[edge.destination] = currentDistance + edge.cost;
-                    heap.push(make_pair(distances[edge.destination], edge.destination));
+                    heap.Insert(make_pair(distances[edge.destination], edge.destination));
                 }
             }
         }

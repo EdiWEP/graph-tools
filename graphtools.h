@@ -420,6 +420,7 @@ public:
 
         
         void Dijkstra(vector<bool>& visitedNodes, vector<int>& distances, Heap< pair<int, int>>& heap, int startIndex = 0);        
+        void BellmanFord(vector<bool>& betterPath, vector<int>& distances, Heap<pair<int, int>>& heap, int startIndex = 0);
         void BFS(vector<int>& visitedNodes, vector<int>& distances, int startIndex = 0);
         void TreeBuilderBFS(int startIndex, Graph& treeGraph, vector<bool>& visitedNodes);
         void DFS(vector<int>& visitedNodes, int marker = 1, int nodeIndex = 0);
@@ -429,7 +430,9 @@ public:
         void TopologicalDFS(int currentNode, stack<int>& orderStack, vector<bool>& visitedNodes);
         void TreeBuilderDFS(int currentNode, int treeCurrentNode, Graph& treeGraph, vector<bool>& visitedNodes);
 
+        bool HasNegativeEdges();
         static bool CompareEdges(Edge x, Edge y);
+        
 
     
 };
@@ -715,14 +718,13 @@ vector<int> Graph::UnweightedDistances(int startIndex /*= 0*/) {
 
 vector<int> Graph::WeightedDistances(int startIndex /*= 0*/) {
                                                 // Computes the weighted distances from node of index startIndex to all other nodes
-                                                // Wrapper method for Dijkstra's algorithm
+                                                // Uses BellmanFord instead of Dijkstra if there are negative weight edges
+                                                // Return vector has distances[startIndex] == 1 if there are negative weight cycles
     vector<int> distances;
     vector<bool> visited;
-
     Heap< pair<int, int> > heap; 
     // The heap will contain pairs of (distance, node), where distance is the current total distance to node
-    
-
+        
     int infinity = 2147483647;      // Used for initializing distance vector
 
     for(int i = 0; i < numberOfNodes; ++i) {
@@ -737,8 +739,12 @@ vector<int> Graph::WeightedDistances(int startIndex /*= 0*/) {
         visited.push_back(false);
     }
 
-    Dijkstra(visited, distances, heap, startIndex);
-
+    if(HasNegativeEdges()) {
+        BellmanFord(visited, distances, heap, startIndex);
+    }   
+    else { 
+        Dijkstra(visited, distances, heap, startIndex);
+    }
     return distances;
 }
 
@@ -851,7 +857,7 @@ void Graph::BuildFromAdjacencyList(istream& inputStream) {          // Sets edge
     for(int i = 0; i < numberOfEdges; ++i) {
 
         inputStream >> node1 >> node2;
- 
+        
         if(weighted) {
             inputStream >> cost;
         }
@@ -873,6 +879,15 @@ void Graph::BuildFromAdjacencyList(istream& inputStream) {          // Sets edge
 #pragma endregion
 
 #pragma region GraphPrivateMethods
+
+bool Graph::HasNegativeEdges() {
+
+    vector<Edge> edges = GetAllEdges();
+    for(auto edge : edges) {
+        if ( edge.cost < 0 ) return true;
+    }
+    return false;
+}
 
 bool Graph::CompareEdges(Edge x, Edge y) {
     return (x.cost < y.cost); 
@@ -908,6 +923,41 @@ void Graph::Dijkstra(vector<bool>& visitedNodes, vector<int>& distances, Heap < 
         }
     }
 }   
+
+void Graph::BellmanFord(vector<bool>& betterPath, vector<int>& distances, Heap<pair<int, int>>& heap, int startIndex /*= 0*/) {
+
+    heap.Insert(make_pair(0, startIndex));
+
+    long long loopCounter = 0;  // Used to count the number of loops in while cycle
+                                // If loopCounter goes above (E-1)*V, 
+                                // then there must be a negative weight cycle in the graph
+    while(!heap.Empty()) {
+
+        if(loopCounter > 1LL* numberOfEdges * (numberOfNodes - 1)) { // Too many improvements, there is a negative weight cycle
+            distances[startIndex] = 1; // Marker for negative weight cycle
+            break;
+        }
+        
+        int currentNode = heap.Extract().second;
+        betterPath[currentNode] = false;
+
+        for(auto edge : adjacencyList[currentNode]) {
+
+            if(distances[edge.destination] > distances[currentNode] + edge.cost) {
+
+                distances[edge.destination] = distances[currentNode] + edge.cost;
+
+                if(!betterPath[edge.destination]) { // Found a new relevant node, so insert it into the heap
+                    
+                    betterPath[edge.destination] = true;
+                    heap.Insert(make_pair(distances[edge.destination], edge.destination));
+                }
+            }
+        }
+
+        ++loopCounter;
+    }
+}
 
 void Graph::TreeBuilderBFS(int startIndex, Graph& treeGraph, vector<bool>& visitedNodes) {
                                                                         // BFS that also builds a new graph(the BFS tree)

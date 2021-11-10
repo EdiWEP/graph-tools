@@ -7,28 +7,41 @@
 
 using namespace std;
 
-struct Edge {                                       // Auxiliary struct for holding edge information
+// Auxiliary struct for holding edge information
+struct Edge {                                       
         int source, destination, cost;          
         Edge(int source, int dest, int cost = 0): source(source), destination(dest), cost(cost){}
-        Edge Flip() {return Edge(destination, source, cost);}   // Returns edge with source and destination swapped
+        // Returns edge with source and destination swapped
+        Edge Flip() {return Edge(destination, source, cost);}   
 };
 
+// Class used for binary heap operations
 template <typename T>
 class Heap {  
 
 public:
- 
+    
+    // Returns maximum/minimum element
     T Root();
+    // Returns maximum/minimum element and removes it from the heap
     T Extract();
+    // Removes minimum/maximum element from the heap
     void Pop();
+    // Inserts a element into the heap
     void Insert(T value);
+    // Finds and removes an element by value from the heap
+    // Does nothing if the element is not found
     int Remove(T value);
+    // Inserts all elements of values into the heap
     void Build(vector<T> values);
+    // Returns a vector of all elements in the heap and empties it
     vector<T> ExtractAll();
 
+    // Returns true if heap is empty
     bool Empty() {
-        return tree.empty();
+        return tree.empty();    
     }
+    // Removes all elements from the heap
     void Clear() {
         tree.clear();
     }
@@ -37,6 +50,7 @@ public:
         this->maxHeap = maxHeap;
     }
 
+    // Constructs a heap and inserts all elements of values into the heap
     Heap(vector<T> values, bool maxheap = false) {
 
         for(auto value : values) {
@@ -44,6 +58,7 @@ public:
         }
     }
 
+    // Returns the number of nodes currently in the heap
     int GetNumberOfNodes() {
         return tree.size();
     }
@@ -237,11 +252,16 @@ int Heap<T>::RightChild(int node) {
 
 #pragma endregion
 
-struct DisjointSets {    // Struct used as helper for creating and manipulating disjoint sets of nodes
+// Struct used as helper for creating and manipulating disjoint sets of nodes
+struct DisjointSets {    
 
+    // Returns the root of the node's component
     int Root(int node);
+    // Merges the components of node1 and node2
+    // The smaller component's root is always attached to the larger one's root
     void Union(int node1, int node2);
 
+    // Constructs and initializes numberOfNodes nodes into numberOfNodes disjoint sets of rank 1
     DisjointSets(int numberOfNodes): numberOfNodes(numberOfNodes) {
 
         for(int node = 0; node < numberOfNodes; ++node) {
@@ -299,29 +319,54 @@ void DisjointSets::Union(int node1, int node2) {  // Merges the two subtrees by 
 class Graph {
 public:
 
-        int TotalCost();
-        int NumberOfComponents();
-        vector<Edge> GetAllEdges();
-        vector<int> UnweightedDistances(int startIndex = 0);
-        vector<int> WeightedDistances(int startIndex = 0);
-        vector<int> TopologicalSort();
-        vector<vector <int>> StronglyConnectedComponents();
-        vector<vector <int>> BiconnectedComponents();
-        vector<Edge> CriticalConnections();
+        // Returns the sum of all edge weights
+        int TotalCost();                                        
+        // Returns the number of connected components (for undirected graphs)
+        int NumberOfComponents();                               
+        // Returns all edges in the graph
+        vector<Edge> GetAllEdges();                             
+        // Returns a vector of distances from node of index startIndex to all others, ignoring weights
+        vector<int> UnweightedDistances(int startIndex = 0);    
+        // Returns a vector of distances from node of index startIndex to all others 
+        // Uses Dijkstra's algorithm if there are no negative edges, otherwise uses the Bellman-Ford algorithm
+        vector<int> WeightedDistances(int startIndex = 0);      
+        // Returns a vector containing the topological sort of current graph (for directed graphs)
+        vector<int> TopologicalSort();                          
+        // Returns vectors of node indexes, grouped into the graph's strongly connected components (for directed graphs)
+        vector<vector <int>> StronglyConnectedComponents();     
+        // Returns vectors of node indexes, grouped into the graph's biconnected components 
+        vector<vector <int>> BiconnectedComponents();  
+        // Returns a vector of the critical edges in the graph
+        vector<Edge> CriticalConnections();                     
 
+        // Returns a new graph that is the MST of this graph
         Graph MinimumSpanningTree();
+        // Returns a new graph that is the DF search tree of this graph starting in startIndex
         Graph DFSTree(int startIndex);
+        // Returns a new graph that is the BF search tree of this graph starting in startIndex
         Graph BFSTree(int startIndex);
+        // Returns a new graph that contains all DFS trees of this graph
+        // Starts a DFS from index 0, then visits all unvisited nodes, adding the other trees to the returned graph
         Graph DFSTrees();
         
+        // Reads edges from file inputStream, formated as adjacency list entries: nodeX, nodeY, cost
+        // Should only be used if numberOfEdges has already been set
         void BuildFromAdjacencyList(istream& inputStream);
+        
+        // Reads edges from file inputStream, formated as an adjacency matrix: 
+        // 0 represents no edge, any other value represents the cost of the edge
+        // Should only be used if numberOfEdges has already been set
         void BuildFromAdjacencyMatrix(istream& inputStream);
 
+        // Adds a new edge to the graph, increases numberOfEdges
         void AddEdge(int source, int dest, int cost = 0);
+        // Adds a new edge to the graph, increases numberOfEdges
         void AddEdge(Edge newEdge);
+        // Adds a new node to the graph, increases numberOfNodes
         void AddNode(int value = 0);
 
-        static bool CheckHavelHakimi(vector<int>& degrees);
+        // Takes a vector of node degree values and checks if a graph can be formed using the Havel-Hakimi algorithm 
+        static bool CheckHavelHakimi(vector<int> degrees);
 
         
 
@@ -630,51 +675,66 @@ vector<int> Graph::TopologicalSort() {
 
 }
 
-bool Graph::CheckHavelHakimi(vector<int>& degrees) {
-                                                                            // Receives a list of node degrees and returns true if a corelated graph can exist through the Havel-Hakimi algorithm
+// Receives a list of node degrees and checks if a corelated graph can exist by usin the Havel-Hakimi algorithm
+bool Graph::CheckHavelHakimi(vector<int> degrees) {
+                                                                            
+    int maximum = -1; 
+    int sum = 0;  
     int numberOfNodes = degrees.size();
-
-    int sum = 0; 
 
     for(int degree : degrees) {
 
+        if(maximum < degree) {
+            maximum = degree;
+        }
         sum += degree;
-
         if (degree >= numberOfNodes) {
                                     // If degree is > n-1 then there are not enough nodes, therefore a graph doesn't exist
             return false; 
         }
     }
 
-    if(sum % 2) {
-                            // If sum of degrees is odd then a graph doesn't exist
+    if(sum % 2) {                           // If sum of degrees is odd then a graph doesn't exist
         return false; 
     }
 
-    sort(degrees.begin(), degrees.end());           // Sort vector of degrees, then iterate through it in descending order
-
-    --numberOfNodes; 
+    vector<int> frequency(maximum + 1, 0);
+    
+    for(int degree : degrees) {
+        ++frequency[degree];    // Form frequency vector
+    }
 
     while(sum > 0) {
 
-        int currentNode = degrees[numberOfNodes];
+        int subtract = maximum; // Value to be subtracted from vector
+        int oldMax = maximum;
+        --frequency[maximum];
 
-        for(int i = numberOfNodes; i > numberOfNodes - currentNode - 1; --i ) {
-            
-            --degrees[i];                       // Decrement the previous max(degrees) values
-            if(degrees[i] < 0) {
-                                               // If any number in the vector falls below 0, then a graph doesn't exist
-                return false;
+        while(subtract > 0) {
+
+            while(frequency[maximum] == 0) {    // Find first value still in vector
+                --maximum;
+                if(maximum < 0) {       // There are no more numbers, so there are too many subtractions, therefore no graph exists
+                    
+                    return false;
+                }
             }
+
+            if(frequency[maximum] >= subtract) {
+                if(maximum > 1) frequency[maximum - 1] += subtract; 
+                frequency[maximum] -= subtract;
+                subtract = 0;
+            }
+            else {
+                if(maximum > 1) frequency[maximum - 1] += frequency[maximum];
+                subtract -= frequency[maximum];
+                frequency[maximum] = 0;
+            }
+
         }
 
-        --numberOfNodes;        // "Eliminating" the node we resolved the degrees of
-        sum -= 2*currentNode;
-       
-        degrees.pop_back();
-        sort(degrees.begin(), degrees.end());   // Bubble sort might be faster here
+        sum -= 2*oldMax;
     }
-    
     return true;            // If this point is reached then the vector is now [0, 0, .. 0] and a graph exists for the given set of degrees          
 }
 
@@ -857,7 +917,7 @@ void Graph::BuildFromAdjacencyList(istream& inputStream) {          // Sets edge
     for(int i = 0; i < numberOfEdges; ++i) {
 
         inputStream >> node1 >> node2;
-        
+
         if(weighted) {
             inputStream >> cost;
         }
@@ -943,7 +1003,7 @@ void Graph::BellmanFord(vector<bool>& betterPath, vector<int>& distances, Heap<p
 
         for(auto edge : adjacencyList[currentNode]) {
 
-            if(distances[edge.destination] > distances[currentNode] + edge.cost) {
+            if(distances[edge.destination] > distances[currentNode] + edge.cost) {  // Found a shorter path
 
                 distances[edge.destination] = distances[currentNode] + edge.cost;
 

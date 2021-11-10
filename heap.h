@@ -8,22 +8,33 @@ using std::vector;
 using std::string;
 using std::pair;
 
+// Class used for binary heap operations
 template <typename T>
 class Heap {  
 
 public:
- 
+    
+    // Returns maximum/minimum element
     T Root();
+    // Returns maximum/minimum element and removes it from the heap
     T Extract();
+    // Removes minimum/maximum element from the heap
     void Pop();
+    // Inserts a element into the heap
     void Insert(T value);
+    // Finds and removes an element by value from the heap
+    // Does nothing if the element is not found
     int Remove(T value);
+    // Inserts all elements of values into the heap
     void Build(vector<T> values);
+    // Returns a vector of all elements in the heap and empties it
     vector<T> ExtractAll();
 
+    // Returns true if heap is empty
     bool Empty() {
-        return tree.empty();
+        return tree.empty();    
     }
+    // Removes all elements from the heap
     void Clear() {
         tree.clear();
     }
@@ -32,6 +43,7 @@ public:
         this->maxHeap = maxHeap;
     }
 
+    // Constructs a heap and inserts all elements of values into the heap
     Heap(vector<T> values, bool maxheap = false) {
 
         for(auto value : values) {
@@ -39,6 +51,7 @@ public:
         }
     }
 
+    // Returns the number of nodes currently in the heap
     int GetNumberOfNodes() {
         return tree.size();
     }
@@ -72,7 +85,6 @@ private:
     };
 
 };
-
 
 #pragma region HeapPublicMethods
 
@@ -189,9 +201,9 @@ void Heap<T>::Ascend(int node) {
 template<typename T>
 void Heap<T>::Delete(int node) {
     
-    if( node < tree.size() ) SwapNodes(node, tree.size()-1);
+    SwapNodes(node, tree.size()-1);
     tree.pop_back();
-    Descend(0);
+    Descend(node);
 }
 
 template<typename T>

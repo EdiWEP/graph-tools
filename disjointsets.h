@@ -5,12 +5,16 @@
 
 using std::vector;
 
+// Struct used as helper for creating and manipulating disjoint sets of nodes
+struct DisjointSets {    
 
-struct DisjointSets {    // Struct used as helper for creating and manipulating disjoint sets of nodes
-
+    // Returns the root of the node's component
     int Root(int node);
+    // Merges the components of node1 and node2
+    // The smaller component's root is always attached to the larger one's root
     void Union(int node1, int node2);
 
+    // Constructs and initializes numberOfNodes nodes into numberOfNodes disjoint sets of rank 1
     DisjointSets(int numberOfNodes): numberOfNodes(numberOfNodes) {
 
         for(int node = 0; node < numberOfNodes; ++node) {

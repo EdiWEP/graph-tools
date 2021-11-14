@@ -317,6 +317,7 @@ void DisjointSets::Union(int node1, int node2) {  // Merges the two subtrees by 
 #pragma endregion
 
 class Graph {
+
 public:
 
         // Returns the sum of all edge weights
@@ -478,7 +479,6 @@ public:
         bool HasNegativeEdges();
         static bool CompareEdges(Edge x, Edge y);
         
-
     
 };
 
@@ -675,7 +675,6 @@ vector<int> Graph::TopologicalSort() {
 
 }
 
-// Receives a list of node degrees and checks if a corelated graph can exist by usin the Havel-Hakimi algorithm
 bool Graph::CheckHavelHakimi(vector<int> degrees) {
                                                                             
     int maximum = -1; 
@@ -1260,3 +1259,4 @@ void Graph::TopologicalDFS(int currentNode, stack<int>& orderStack, vector<bool>
 }
 
 #pragma endregion
+

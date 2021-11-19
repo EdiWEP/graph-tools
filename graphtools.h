@@ -320,6 +320,9 @@ class Graph {
 
 public:
 
+        // Holds the max value for int, used to represent infinite distances(for unreachable nodes)
+        // = 2147483647 
+        static const int INFINITE; 
         // Returns the sum of all edge weights
         int TotalCost();                                        
         // Returns the number of connected components (for undirected graphs)
@@ -331,6 +334,9 @@ public:
         // Returns a vector of distances from node of index startIndex to all others 
         // Uses Dijkstra's algorithm if there are no negative edges, otherwise uses the Bellman-Ford algorithm
         vector<int> WeightedDistances(int startIndex = 0);      
+        // Returns an adjacency matrix, returnMatrix[i][j] represents the cost of the minimum path from node i to node j
+        // returnMatrix[i][j] == Graph::INFINITE means there is no edge from i to j
+        vector<vector <int>> AllMinimumDistances();
         // Returns a vector containing the topological sort of current graph (for directed graphs)
         vector<int> TopologicalSort();                          
         // Returns vectors of node indexes, grouped into the graph's strongly connected components (for directed graphs)
@@ -356,9 +362,12 @@ public:
         
         // Reads edges from file inputStream, formated as an adjacency matrix: 
         // 0 represents no edge, any other value represents the cost of the edge
-        // Should only be used if numberOfEdges has already been set
+        // If upon calling numberOfEdges == 0 (has not been set), sets numberOfEdges according to the matrix
         void BuildFromAdjacencyMatrix(istream& inputStream);
 
+        // Returns an adjacency matrix for the graph, returnMatrix[i][j] represents the cost from node i to node j 
+        // returnMatrix[i][j] == Graph::INFINITE means there is no edge from i to j
+        vector<vector<int>> GetAdjacencyMatrix();
         // Adds a new edge to the graph, increases numberOfEdges
         void AddEdge(int source, int dest, int cost = 0);
         // Adds a new edge to the graph, increases numberOfEdges
@@ -381,7 +390,7 @@ public:
             this->weighted = weighted; 
         }
 
-        Graph(int numberOfNodes, int numberOfEdges, bool directed = false, bool weighted = false) {
+        Graph(int numberOfNodes, int numberOfEdges = 0, bool directed = false, bool weighted = false) {
             
             this->numberOfEdges = numberOfEdges;
             this->directed = directed;
@@ -478,9 +487,9 @@ public:
 
         bool HasNegativeEdges();
         static bool CompareEdges(Edge x, Edge y);
-        
     
 };
+const int Graph::INFINITE = 2147483647;
 
 #pragma region GraphPublicMethods
 
@@ -675,7 +684,6 @@ vector<int> Graph::TopologicalSort() {
 
 }
 
-
 bool Graph::CheckHavelHakimi(vector<int> degrees) {
                                                                             // Receives a list of node degrees and returns true if a corelated graph can exist through the Havel-Hakimi algorithm
    
@@ -821,6 +829,30 @@ vector<int> Graph::WeightedDistances(int startIndex /*= 0*/) {
     return distances;
 }
 
+vector<vector <int>> Graph::AllMinimumDistances() {
+
+    vector<vector<int>> adjMatrix = GetAdjacencyMatrix();
+
+    for(int node = 0; node < numberOfNodes; ++node) {    // For each node, check if it can be used to make any path shorter
+        for(int i = 0; i < numberOfNodes; ++i) {
+            for(int j = 0; j < numberOfNodes; ++j) {
+                
+                if(i == j) continue;
+                if(adjMatrix[i][node] != INFINITE && adjMatrix[node][j] != INFINITE ) {  // If a path from i to j through node exists
+
+                    int detourPath = adjMatrix[i][node] + adjMatrix[node][j];
+                    if(adjMatrix[i][j] > detourPath || adjMatrix[i][j] == INFINITE ) {
+                        adjMatrix[i][j] = detourPath;
+                    }
+                }
+            }
+        }
+    }
+
+    return adjMatrix;
+
+}
+
 int Graph::NumberOfComponents() {
                                         // Computes number of components in undirected graph 
     int numberOfComponents = 0;
@@ -893,8 +925,32 @@ vector< vector <int> > Graph::StronglyConnectedComponents() {
     return scc;
 }
 
+vector<vector<int>> Graph::GetAdjacencyMatrix() {
+
+    vector<vector<int>> matrix;
+
+    for(int i = 0; i < numberOfNodes; ++i) {
+        vector<int> tempVector(numberOfNodes, INFINITE);
+        matrix.push_back(tempVector);
+    }
+
+    for(int i = 0; i < numberOfNodes; ++i) {
+        for(auto edge : adjacencyList[i]) {
+
+            matrix[i][edge.destination] = edge.cost;
+        }
+    }
+
+    return matrix;
+}
+
 void Graph::BuildFromAdjacencyMatrix(istream& inputStream) {        // Sets edges between nodes by reading an adjacency matrix from inputStream
                                                                     // Should only be used if numberOfEdges has already been set 
+
+    bool incrementNumber = false;
+    if(!numberOfEdges) {
+        incrementNumber = true;
+    }
 
     int matrixValue;             // If matrixValue is 0, there is no edge, if matrixValue != 0, then there is an edge of cost matrixValue
 
@@ -911,6 +967,11 @@ void Graph::BuildFromAdjacencyMatrix(istream& inputStream) {        // Sets edge
 
                 Edge newEdge(i, j, matrixValue);
 
+                if(incrementNumber) {
+                    AddEdge(newEdge);
+                    continue;
+                }
+                
                 adjacencyList[i].push_back( newEdge );
 
                 if(!directed) {    

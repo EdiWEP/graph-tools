@@ -326,7 +326,9 @@ public:
         // Returns the sum of all edge weights
         int TotalCost();                                        
         // Returns the number of connected components (for undirected graphs)
-        int NumberOfComponents();                               
+        int NumberOfComponents();        
+        // Returns the diameter of the graph(length of longest sequence of connected nodes). Should only be used on trees
+        int TreeDiameter();                       
         // Returns all edges in the graph
         vector<Edge> GetAllEdges();                             
         // Returns a vector of distances from node of index startIndex to all others, ignoring weights
@@ -597,6 +599,32 @@ int Graph::TotalCost() {
     }
 
     return totalCost;
+}
+
+int Graph::TreeDiameter() {
+
+    vector<int> distances = UnweightedDistances(); // Perform a BFS
+
+    int maximum = 0;
+    int maxIndex;
+
+    for(int i = 0; i < numberOfNodes; ++i) {
+        if (distances[i] > maximum) {
+            maximum = distances[i];
+            maxIndex = i;
+        }
+    }
+
+    distances = UnweightedDistances(maxIndex);  // Perform a second BFS from the node that's farthest away
+    maximum = 0;
+
+    for(int i = 0; i < numberOfNodes; ++i) {
+        if(distances[i] > maximum) {
+            maximum = distances[i];
+        }
+    }
+
+    return maximum + 1; // Add 1 to count starting node 
 }
 
 Graph Graph::DFSTree(int startIndex) {

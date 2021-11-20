@@ -7,6 +7,7 @@
 
 using namespace std;
 
+
 // Auxiliary struct for holding edge information
 struct Edge {                                       
         int source, destination, cost;          
@@ -316,6 +317,8 @@ void DisjointSets::Union(int node1, int node2) {  // Merges the two subtrees by 
 
 #pragma endregion
 
+class FlowHandler;
+
 class Graph {
 
 public:
@@ -328,7 +331,10 @@ public:
         // Returns the number of connected components (for undirected graphs)
         int NumberOfComponents();        
         // Returns the diameter of the graph(length of longest sequence of connected nodes). Should only be used on trees
-        int TreeDiameter();                       
+        int TreeDiameter();              
+        // Returns the maximum flow from source to sink. Should only be used after BuildFlowNetwork() has been called
+        // Requires handler to be the FlowHandler that was passed to BuildFlowNetwork()
+        int MaximumFlow(unsigned int source, unsigned int sink, FlowHandler& handler);         
         // Returns all edges in the graph
         vector<Edge> GetAllEdges();                             
         // Returns a vector of distances from node of index startIndex to all others, ignoring weights
@@ -358,11 +364,16 @@ public:
         // Starts a DFS from index 0, then visits all unvisited nodes, adding the other trees to the returned graph
         Graph DFSTrees();
         
-        // Reads edges from file inputStream, formated as adjacency list entries: nodeX, nodeY, cost
+        // Reads edges from inputStream, formated as adjacency list entries: nodeX, nodeY, capacity, cost
+        // and builds a flow network graph using handler as a helper for operations on the network
+        // Should only be used after setting numberOfNodes and numberOfEdges 
+        void BuildFlowNetwork(istream& inputStream, FlowHandler& handler);
+
+        // Reads edges from inputStream, formated as adjacency list entries: nodeX, nodeY, cost
         // Should only be used if numberOfEdges has already been set
         void BuildFromAdjacencyList(istream& inputStream);
         
-        // Reads edges from file inputStream, formated as an adjacency matrix: 
+        // Reads edges from inputStream, formated as an adjacency matrix: 
         // 0 represents no edge, any other value represents the cost of the edge
         // If upon calling numberOfEdges == 0 (has not been set), sets numberOfEdges according to the matrix
         void BuildFromAdjacencyMatrix(istream& inputStream);
@@ -419,7 +430,7 @@ public:
             }
         }
 
-        int GetValue(int node) {
+        int GetValue(int node) const {
             
             try {
                 return values[node];
@@ -434,7 +445,7 @@ public:
             this->directed = directed;
         }
 
-        bool IsDirected() {
+        bool IsDirected() const {
             return directed;
         }
 
@@ -442,7 +453,7 @@ public:
             this->weighted = weighted;
         }
 
-        bool IsWeighted() {
+        bool IsWeighted() const {
             return weighted;
         }
 
@@ -450,7 +461,7 @@ public:
             numberOfNodes = number;
         }
         
-        int GetNumberOfNodes() {
+        int GetNumberOfNodes() const {
             return numberOfNodes;
         }
 
@@ -458,7 +469,7 @@ public:
             numberOfEdges = number;
         }
 
-        int GetNumberOfEdges() {
+        int GetNumberOfEdges() const {
             return numberOfEdges;
         }
 
@@ -478,7 +489,8 @@ public:
         
         void Dijkstra(vector<bool>& visitedNodes, vector<int>& distances, Heap< pair<int, int>>& heap, int startIndex = 0);        
         void BellmanFord(vector<bool>& betterPath, vector<int>& distances, Heap<pair<int, int>>& heap, int startIndex = 0);
-        void BFS(vector<int>& visitedNodes, vector<int>& distances, int startIndex = 0);
+        void BFS(vector<bool>& visitedNodes, vector<int>& distances, int startIndex = 0);
+        void FlowBFS(vector<bool>& visitedNodes, vector<int>& prev, FlowHandler& fh, int startIndex, int sink);
         void TreeBuilderBFS(int startIndex, Graph& treeGraph, vector<bool>& visitedNodes);
         void DFS(vector<int>& visitedNodes, int marker = 1, int nodeIndex = 0);
         void StronglyConnectedDFS(int currentNode, vector<vector<int>>& scc, vector<int>& order, vector<int>& lowest, stack<int>& nodeStack, vector<bool>& onStack, int& counter);
@@ -492,6 +504,66 @@ public:
     
 };
 const int Graph::INFINITE = 2147483647;
+
+// Class used as a helper for graph class, to be passed as parameter to graph methods that operate on flow networks 
+// Should be instantianted after initializing graph with numberOfNodes and numberOfEdges
+class FlowHandler {
+
+    friend class Graph;
+
+public:
+
+    // The matrix for storing capacity of each edge. capacityMatrix[x][y] holds the capacity of the edge x -> y
+    vector< vector< int >> capacityMatrix;
+
+    // Must receive a pointer to the graph that represents the flow network and the indexes of the source and sink nodes
+    FlowHandler(Graph* graphPointer, int sourceIndex, int sinkIndex): graph(graphPointer), source(sourceIndex), sink(sinkIndex) {
+        
+        numberOfNodes = graph->GetNumberOfNodes();
+
+        for(int i = 0; i < numberOfNodes; ++i) {
+        
+            vector<int> tempVector;
+            capacityMatrix.push_back(tempVector);
+            flowMatrix.push_back(tempVector);
+            for(int j = 0; j < numberOfNodes; ++j) {
+                capacityMatrix[i].push_back(0);
+                flowMatrix[i].push_back(0);
+            }
+        }
+    }
+    
+    int GetSource() {return source;}
+    int GetSink() {return sink;}
+
+    void SetSource(unsigned int source) { 
+        try {
+            if (source < numberOfNodes) this->source = source;
+            else throw;
+        }
+        catch (...) {
+            throw "Source index out of range";
+        }
+    }
+
+    void SetSink(unsigned int sink) {
+        try {
+            if (sink < numberOfNodes) this->sink = sink;
+            else throw;
+        }
+        catch (...) {
+            throw "Sink index out of range";
+        }
+    }
+
+private:
+    // The graph this FlowHandler is corelated to
+    const Graph* graph; 
+    int numberOfNodes;
+    int source, sink;
+
+    vector< vector< int >> flowMatrix;
+};
 
 #pragma region GraphPublicMethods
 
@@ -625,6 +697,65 @@ int Graph::TreeDiameter() {
     }
 
     return maximum + 1; // Add 1 to count starting node 
+}
+
+int Graph::MaximumFlow(unsigned int source, unsigned int sink, FlowHandler& handler) {
+
+    int totalFlow = 0;
+
+    vector<bool> visited; // For marking visited nodes
+    vector<int> previous; // Used for tracking paths to sink 
+
+    for(int i = 0; i < numberOfNodes; ++i) {    // Initialization
+        visited.push_back(false);
+        previous.push_back(0);
+    }
+    
+    FlowBFS(visited, previous, handler, source, sink);
+
+    while(visited[sink]) {
+
+        for(auto edge : adjacencyList[sink]) {  // By checking the paths of all nodes that connect to the sink, we can reduce the number of BFS's that must be performed
+
+            previous[sink] = edge.destination;
+            int minimumIncrease = Graph::INFINITE;
+            int node = sink; // Current node in path
+            
+            while(node != source) { // Go back through the path to find the minimum possible increase for the flow of the whole path
+                int prev = previous[node];
+                int increase = handler.capacityMatrix[prev][node] - handler.flowMatrix[prev][node];
+
+                if(minimumIncrease > increase) {
+                    minimumIncrease = increase;
+                }
+                
+                node = prev;
+            }
+
+            
+            if(minimumIncrease != 0) { // If an improvement was found 
+                node = sink;
+                while(node != source) { // Go back through the path to find the minimum possible increase for the flow of the whole path
+                    int prev = previous[node];
+                    
+                    handler.flowMatrix[prev][node] += minimumIncrease;
+                    handler.flowMatrix[node][prev] -= minimumIncrease; // Set residual graph edge 
+
+                    node = prev;
+                }
+
+                totalFlow += minimumIncrease;
+            }
+
+        }
+
+        for(int i = 0; i < numberOfNodes; ++i) {
+            visited[i] = false;
+        }
+        FlowBFS(visited, previous, handler, source, sink);
+    }
+
+    return totalFlow;
 }
 
 Graph Graph::DFSTree(int startIndex) {
@@ -811,7 +942,7 @@ vector<int> Graph::UnweightedDistances(int startIndex /*= 0*/) {
                                                                         // Wrapper Method for calculating unweighted distances to each node form startIndex through BFS
                                                                         // Saves distances in distances parameter(distances vector should be empty when calling this method)
     
-    vector<int> visited;
+    vector<bool> visited;
     vector<int> distances;
 
     
@@ -1037,6 +1168,30 @@ void Graph::BuildFromAdjacencyList(istream& inputStream) {          // Sets edge
     }   
 }
 
+void Graph::BuildFlowNetwork(istream& inputStream, FlowHandler& handler) {
+
+    int node1, node2, capacity, cost;
+
+    for(int i = 0; i < numberOfEdges; ++i) {
+
+        inputStream >> node1 >> node2 >> capacity;
+        --node1; --node2; // deoarece pe infoarena nodurile sunt indexate de la 1
+
+        if(weighted) {
+            inputStream >> cost;
+        }
+        else {
+            cost = 0;
+        }
+        
+        Edge newEdge(node1, node2, cost);
+        adjacencyList[node1].push_back( newEdge );
+        adjacencyList[node2].push_back( newEdge.Flip() );
+
+        handler.capacityMatrix[node1][node2] = capacity;
+
+    }
+}
 
 #pragma endregion
 
@@ -1173,7 +1328,7 @@ void Graph::TreeBuilderDFS(int currentNode, int treeCurrentNode, Graph& treeGrap
     }
 }
 
-void Graph::BFS(vector<int>& visitedNodes, vector<int>& distances, int startIndex /*= 0*/) {
+void Graph::BFS(vector<bool>& visitedNodes, vector<int>& distances, int startIndex /*= 0*/) {
                                                                         // Breadth-first search that sets visited nodes and distance to each node from node with index startIndex
     queue<int> nodeQueue;           // Queue of nodes that haven't had their edges processed yet
 
@@ -1201,6 +1356,34 @@ void Graph::BFS(vector<int>& visitedNodes, vector<int>& distances, int startInde
         nodeQueue.pop();
     }
 
+}
+
+void Graph::FlowBFS(vector<bool>& visitedNodes, vector<int>& prev, FlowHandler& fh, int source, int sink) {
+
+    // Performs BF searches for Edmonds-Karp algorithm, setting the previous node for each node it reaches
+    queue<int> nodeQueue;
+    nodeQueue.push(source);
+
+    while(!nodeQueue.empty()) {
+
+        int currentNode = nodeQueue.front();
+        nodeQueue.pop();
+
+        visitedNodes[currentNode] = true;
+
+        if(currentNode != sink) {
+
+            for(auto edge: adjacencyList[currentNode]) {
+                int neighbor = edge.destination;
+
+                if(!visitedNodes[neighbor] && fh.flowMatrix[currentNode][neighbor] < fh.capacityMatrix[currentNode][neighbor]) { // If more flow can fit
+                    
+                    prev[neighbor] = currentNode;
+                    nodeQueue.push(neighbor);
+                }
+            }
+        }
+    }
 }
 
 void Graph::DFS(vector<int>& visitedNodes, int marker /*= 1*/, int nodeIndex /*= 0*/) {

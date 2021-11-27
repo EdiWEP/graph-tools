@@ -302,49 +302,76 @@ void Graph::BiconnectedDFS(int currentNode, int parent, int currentDepth, vector
 
 bool Graph::CheckHavelHakimi(vector<int>& degrees) {
                                                                             // Receives a list of node degrees and returns true if a corelated graph can exist through the Havel-Hakimi algorithm
+   
+    int maximum = -1; 
+    int sum = 0;  
     int numberOfNodes = degrees.size();
-
-    int sum = 0; 
 
     for(int degree : degrees) {
 
+        if(maximum < degree) {
+            maximum = degree;
+        }
         sum += degree;
-
         if (degree >= numberOfNodes) {
                                     // If degree is > n-1 then there are not enough nodes, therefore a graph doesn't exist
             return false; 
         }
     }
 
-    if(sum % 2) {
-                            // If sum of degrees is odd then a graph doesn't exist
+    if(sum % 2) {                           // If sum of degrees is odd then a graph doesn't exist
         return false; 
     }
 
-    sort(degrees.begin(), degrees.end());           // Sort vector of degrees, then iterate through it in descending order
+    vector<int> frequency(maximum + 1, 0);
+    
+    for(int degree : degrees) {
+        ++frequency[degree];    // Form frequency vector
+    }
 
-    --numberOfNodes; 
-
+    stack<pair<int, int>> changeStack;  // Stack used to keep track of changes on the frequency vector
+                                        // .first is the node whose frequency number has to have .second added to it
     while(sum > 0) {
+        pair <int, int> stackTop;
+        
+        while(!changeStack.empty()) {
+            stackTop = changeStack.top();
+            frequency[stackTop.first] += stackTop.second;
+            changeStack.pop();
 
-        int currentNode = degrees[numberOfNodes];
-
-        for(int i = numberOfNodes; i > numberOfNodes - currentNode - 1; --i ) {
-            
-            --degrees[i];                       // Decrement the previous max(degrees) values
-            if(degrees[i] < 0) {
-                                               // If any number in the vector falls below 0, then a graph doesn't exist
-                return false;
-            }
+            if(stackTop.first > maximum) maximum = stackTop.first;
         }
 
-        --numberOfNodes;        // "Eliminating" the node we resolved the degrees of
-        sum -= 2*currentNode;
-       
-        degrees.pop_back();
-        sort(degrees.begin(), degrees.end());
+        while(frequency[maximum] == 0) {    // Find first value still in vector
+            --maximum;
+            if(maximum < 0) return false;       // There are no more numbers, so there are too many subtractions, therefore no graph exists
+        }
+
+        int subtract = maximum; // Value to be subtracted from vector
+        int oldMax = maximum;
+        --frequency[maximum];
+        
+        while(subtract > 0) {
+
+            while(frequency[maximum] == 0) {    // Find first value still in vector
+                --maximum;
+                if(maximum < 0) return false;       // There are no more numbers, so there are too many subtractions, therefore no graph exists
+            }
+
+            if(frequency[maximum] >= subtract) {
+                if(maximum > 1) changeStack.push(make_pair(maximum - 1, subtract));
+                frequency[maximum] -= subtract;
+                subtract = 0;
+            }
+            else {
+                if(maximum > 1) changeStack.push(make_pair(maximum - 1, frequency[maximum])); 
+                subtract -= frequency[maximum];
+                frequency[maximum] = 0;
+            }
+
+        }
+        sum -= 2*oldMax;
     }
-    
     return true;            // If this point is reached then the vector is now [0, 0, .. 0] and a graph exists for the given set of degrees          
 }
 
@@ -479,7 +506,7 @@ void Graph::BuildFromAdjacencyList(istream& inputStream) {           // Sets edg
 
 int main() {
 
-    vector<int> degrees{3,2,1,1,2,4,3,4};
+    vector<int> degrees{4,4,3,3,2,2,1,1}; 
 
     if(Graph::CheckHavelHakimi(degrees)) {
         cout<<"DA";

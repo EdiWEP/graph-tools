@@ -1,4 +1,3 @@
-#pragma once
 #include<iostream>
 #include<fstream>
 #include<vector>
@@ -499,11 +498,12 @@ public:
         void CriticalEdgesDFS(int currentNode, int parent, vector <Edge>& cc, vector<int>& depth, vector<int>& lowest, int& counter);
         void TopologicalDFS(int currentNode, stack<int>& orderStack, vector<bool>& visitedNodes);
         void TreeBuilderDFS(int currentNode, int treeCurrentNode, Graph& treeGraph, vector<bool>& visitedNodes);
-
         bool SolveInfoarenaEulerCycle(vector < vector< pair<int, int> > > & adjList, vector<bool>& used, stack<int>& nodeStack, vector<int>& cycle);
 
         bool HasNegativeEdges();
         static bool CompareEdges(Edge x, Edge y);
+
+        friend void solve();
     
 };
 const int Graph::INFINITE = 2147483647;
@@ -1178,6 +1178,7 @@ void Graph::BuildFlowNetwork(istream& inputStream, FlowHandler& handler) {
     for(int i = 0; i < numberOfEdges; ++i) {
 
         inputStream >> node1 >> node2 >> capacity;
+        --node1; --node2; // deoarece pe infoarena nodurile sunt indexate de la 1
 
         if(weighted) {
             inputStream >> cost;
@@ -1198,6 +1199,43 @@ void Graph::BuildFlowNetwork(istream& inputStream, FlowHandler& handler) {
 #pragma endregion
 
 #pragma region GraphPrivateMethods
+
+bool Graph::SolveInfoarenaEulerCycle(vector < vector< pair<int, int> > > & adjList, vector<bool>& used, stack<int>& nodeStack, vector<int>& cycle) {
+    
+    for(int i = 0; i < numberOfNodes; ++i) {
+        if(adjList[i].size() % 2 == 1) {
+            return false;
+        }
+    }
+
+    nodeStack.push(0);
+    while(!nodeStack.empty()) {
+
+        int currentNode = nodeStack.top();
+
+        if (!adjList[currentNode].empty()) {
+            
+            int destination = adjList[currentNode].back().first;
+            int edgeId = adjList[currentNode].back().second;
+
+            adjList[currentNode].pop_back();
+
+            if(!used[edgeId]) {
+                used[edgeId] = true;
+                nodeStack.push(destination);
+            }
+        }
+        else {
+            cycle.push_back(currentNode);
+            nodeStack.pop();
+        }
+
+    }
+
+    return true;
+
+}
+
 
 bool Graph::HasNegativeEdges() {
 
@@ -1546,39 +1584,61 @@ void Graph::TopologicalDFS(int currentNode, stack<int>& orderStack, vector<bool>
     orderStack.push(currentNode);           // The stack is formed in the return order of the DFS
 }
 
-bool Graph::SolveInfoarenaEulerCycle(vector < vector< pair<int, int> > > & adjList, vector<bool>& used, stack<int>& nodeStack, vector<int>& cycle) {
+#pragma endregion
+
+
+void solve() {
+
+    int numberOfNodes, numberOfEdges;
+
+    ifstream inputFile("ciclueuler.in"); 
+    ofstream outputFile("ciclueuler.out");
     
+    inputFile >> numberOfNodes >> numberOfEdges;
+
+    Graph graph(numberOfNodes, 0);
+
+    vector< vector< pair<int, int>>> adjList;
+    vector<bool> used;
+    stack<int> nodeStack;
+    vector<int> cycle;      
+
     for(int i = 0; i < numberOfNodes; ++i) {
-        if(adjList[i].size() % 2 == 1) {
-            return false;
-        }
+        vector<pair<int,int>> tempVector;
+
+        adjList.push_back(tempVector);
     }
 
-    nodeStack.push(0);
-    while(!nodeStack.empty()) {
+    for(int i = 0; i < numberOfEdges; ++i) {
 
-        int currentNode = nodeStack.top();
+        int node1, node2;
 
-        if (!adjList[currentNode].empty()) {
-            int edgeId = adjList[currentNode].back().second;
-            int destination = adjList[currentNode].back().first;
+        inputFile>>node1>>node2;
 
-            adjList[currentNode].pop_back();
-
-            if(!used[edgeId]) {
-                used[edgeId] = true;
-                nodeStack.push(destination);
-            }
-        }
-        else {
-            cycle.push_back(currentNode);
-            nodeStack.pop();
-        }
+        --node1; --node2;                   // Deoarece pe infoarena nodurile sunt indexate de la 1
+        adjList[node1].push_back({ node2, i });
+        adjList[node2].push_back({ node1, i });
+        used.push_back(false);
 
     }
 
-    return true;
+    bool possible = graph.SolveInfoarenaEulerCycle(adjList, used, nodeStack, cycle);
+
+    if(!possible) {
+        outputFile << -1;
+
+    }
+    else {
+        for(int i = 0; i < numberOfEdges; ++i) {
+            outputFile<< cycle[i]+1<<' ';
+        }
+    }
 
 }
 
-#pragma endregion
+int main() {
+
+    solve();
+
+    return 0;
+}
